@@ -5,3 +5,5 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+diesel = { version = "2.3.14", features = ["sqlite", "serde_json"] }
+dotenv = "0.15"
