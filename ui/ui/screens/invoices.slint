@@ -1,0 +1,116 @@
+import { ListView } from "std-widgets.slint";
+import { Theme, Icons } from "../theme.slint";
+import { Api, InvoicesState, InvoiceRow } from "../globals.slint";
+import { Btn, PageHeader, EmptyState, SearchBox, StatusPill, Label, Icon } from "../components/widgets.slint";
+
+component InvoiceRowView inherits Rectangle {
+    in property <InvoiceRow> data;
+    height: Theme.compact ? 64px : 54px;
+    background: ta.has-hover ? Theme.surface-alt : transparent;
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { Api.open-order(root.data.order-id); }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 10px;
+        spacing: 12px;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 8px;
+                background: Theme.primary-soft;
+                Icon {
+                    source: Icons.invoice;
+                    colorize: Theme.primary;
+                    size: 18px;
+                }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            HorizontalLayout {
+                spacing: 8px;
+                Text { text: root.data.invoice-no; font-weight: 700; color: Theme.text; }
+                Text { text: "v" + root.data.version; font-size: Theme.font-sm; font-weight: 600; color: Theme.text-subtle; }
+            }
+            Text {
+                text: root.data.customer + " · " + root.data.order-no;
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+                overflow: elide;
+            }
+        }
+        if !Theme.compact: Text {
+            text: root.data.updated;
+            width: 140px;
+            color: Theme.text-muted;
+            font-size: Theme.font-sm;
+            vertical-alignment: center;
+        }
+        if !Theme.compact: VerticalLayout {
+            width: 92px;
+            alignment: center;
+            StatusPill { status: root.data.status; label: root.data.status-label; }
+        }
+        Text {
+            text: root.data.total;
+            width: 120px;
+            font-weight: 700;
+            color: Theme.text;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+        VerticalLayout {
+            alignment: center;
+            Btn {
+                kind: "ghost";
+                small: true;
+                icon: Icons.download;
+                clicked => { Api.download-latest(root.data.id); }
+            }
+        }
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+}
+
+export component InvoicesPage inherits VerticalLayout {
+    padding: Theme.compact ? 16px : 24px;
+    spacing: 16px;
+
+    PageHeader {
+        title: "Invoices";
+        sub: "Every generated invoice, with its revision history.";
+    }
+
+    SearchBox {
+        placeholder: "Search by invoice, order or customer";
+        text <=> InvoicesState.search;
+        changed => { Api.invoices-search(); }
+    }
+
+    Rectangle {
+        vertical-stretch: 1;
+        background: Theme.surface;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+
+        if InvoicesState.rows.length == 0: EmptyState {
+            icon: Icons.invoice;
+            title: InvoicesState.search == "" ? "No invoices yet" : "No matching invoices";
+            message: InvoicesState.search == "" ? "Open an order and choose “Generate invoice” to create one." : "Try a different search.";
+        }
+        if InvoicesState.rows.length > 0: ListView {
+            for row in InvoicesState.rows: InvoiceRowView { data: row; }
+        }
+    }
+}

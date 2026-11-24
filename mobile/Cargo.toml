@@ -1,11 +1,48 @@
 [package]
 name = "app-mobile"
+description = "OpenBilling for Android and iOS"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [lib]
-crate-type = ["lib", "cdylib"]
+name = "openbilling"
+# cdylib: the Android app (libopenbilling.so). lib: used by the binary below.
+crate-type = ["cdylib", "lib"]
+
+# iOS entry point. On Windows/macOS/Linux this runs a phone-sized preview of
+# the mobile app (folder-based file handling, no native dialogs).
+[[bin]]
+name = "openbilling-mobile"
+path = "src/main.rs"
 
 [dependencies]
 app-core = { path = "../core" }
+app-ui = { path = "../ui" }
+slint = "1.18.1"
+
+[target.'cfg(target_os = "android")'.dependencies]
+slint = { version = "1.18.1", features = ["backend-android-activity-06"] }
+
+# ---------------------------------------------------------------------------
+# Android packaging (cargo-apk). Build with:
+#   cargo apk build -p app-mobile --lib --release
+# ---------------------------------------------------------------------------
+[package.metadata.android]
+package = "com.openbilling.app"
+apk_name = "OpenBilling"
+build_targets = ["aarch64-linux-android", "x86_64-linux-android"]
+resources = "android/res"
+
+[package.metadata.android.sdk]
+min_sdk_version = 26
+target_sdk_version = 35
+
+[package.metadata.android.application]
+label = "OpenBilling"
+icon = "@mipmap/ic_launcher"
+theme = "@android:style/Theme.Material.Light.NoActionBar"
+
+[package.metadata.android.application.activity]
+config_changes = "orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|density|uiMode"
+launch_mode = "singleTask"

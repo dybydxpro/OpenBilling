@@ -1,0 +1,159 @@
+import { ListView } from "std-widgets.slint";
+import { Theme, Icons } from "../theme.slint";
+import { Api, CustomersState, CustomerRow } from "../globals.slint";
+import { Btn, Field, AreaField, PageHeader, EmptyState, SearchBox, Avatar, Modal, ErrorBanner, Label } from "../components/widgets.slint";
+
+component CustomerRowView inherits Rectangle {
+    in property <CustomerRow> data;
+    height: 62px;
+    background: ta.has-hover ? Theme.surface-alt : transparent;
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { Api.edit-customer(root.data.id); }
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 10px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Avatar { initials: root.data.initials; }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            Text { text: root.data.name; font-weight: 700; color: Theme.text; overflow: elide; }
+            Text {
+                text: root.data.email != "" ? root.data.email : (root.data.phone != "" ? root.data.phone : "No contact details");
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+                overflow: elide;
+            }
+        }
+        if !Theme.compact: Text {
+            text: root.data.phone;
+            width: 140px;
+            color: Theme.text-muted;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if !Theme.compact: Text {
+            text: root.data.orders + (root.data.orders == 1 ? " order" : " orders");
+            width: 80px;
+            color: Theme.text-muted;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.data.billed;
+            width: 120px;
+            font-weight: 700;
+            color: Theme.text;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+        }
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                spacing: 2px;
+                Btn {
+                    kind: "ghost";
+                    small: true;
+                    icon: Icons.orders;
+                    clicked => { Api.customer-orders(root.data.id); }
+                }
+                Btn {
+                    kind: "danger-ghost";
+                    small: true;
+                    icon: Icons.trash;
+                    clicked => { Api.delete-customer(root.data.id); }
+                }
+            }
+        }
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+}
+
+export component CustomersPage inherits VerticalLayout {
+    padding: Theme.compact ? 16px : 24px;
+    spacing: 16px;
+
+    PageHeader {
+        title: "Customers";
+        sub: CustomersState.rows.length + (CustomersState.rows.length == 1 ? " customer" : " customers");
+        Btn {
+            text: Theme.compact ? "" : "New customer";
+            icon: Icons.plus;
+            clicked => { Api.new-customer(false); }
+        }
+    }
+
+    SearchBox {
+        placeholder: "Search by name, email or phone";
+        text <=> CustomersState.search;
+        changed => { Api.customers-search(); }
+    }
+
+    Rectangle {
+        vertical-stretch: 1;
+        background: Theme.surface;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+
+        if CustomersState.rows.length == 0: EmptyState {
+            icon: Icons.customers;
+            title: CustomersState.search == "" ? "No customers yet" : "No matching customers";
+            message: CustomersState.search == "" ? "Add the people and businesses you sell to." : "Try a different search.";
+            if CustomersState.search == "": Btn {
+                text: "Add customer";
+                icon: Icons.plus;
+                clicked => { Api.new-customer(false); }
+            }
+        }
+        if CustomersState.rows.length > 0: ListView {
+            for row in CustomersState.rows: CustomerRowView { data: row; }
+        }
+    }
+}
+
+export component CustomerDialog inherits Modal {
+    title: CustomersState.edit-id == 0 ? "New customer" : "Edit customer";
+    close => { Api.customer-cancel(); }
+
+    if CustomersState.error != "": ErrorBanner { text: CustomersState.error; }
+    name-field := Field {
+        label: "Name *";
+        placeholder: "Customer or company name";
+        text <=> CustomersState.name;
+        init => { self.focus-input(); }
+    }
+    HorizontalLayout {
+        spacing: 12px;
+        Field { label: "Email"; placeholder: "name@example.com"; text <=> CustomersState.email; }
+        Field { label: "Phone"; placeholder: "+1 555 0100"; text <=> CustomersState.phone; }
+    }
+    AreaField {
+        label: "Billing address";
+        placeholder: "Street, city, postcode";
+        text <=> CustomersState.address;
+        box-height: 80px;
+    }
+    HorizontalLayout {
+        alignment: end;
+        spacing: 8px;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.customer-cancel(); }
+        }
+        Btn {
+            text: "Save customer";
+            icon: Icons.check;
+            clicked => { Api.customer-save(); }
+        }
+    }
+}

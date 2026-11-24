@@ -1,0 +1,774 @@
+import { ListView, LineEdit } from "std-widgets.slint";
+import { Theme, Icons } from "../theme.slint";
+import { Api, AppState, OrdersState, OrderForm, OrderView, OrderRow, ItemRow, VersionRow } from "../globals.slint";
+import {
+    Btn, Card, Field, AreaField, SelectField, StatusPill, PageHeader, EmptyState, SearchBox, Chip,
+    PageScroll, Modal, ErrorBanner, InfoBanner, Divider, Icon, Label, SectionTitle
+} from "../components/widgets.slint";
+
+// ---------------------------------------------------------------------------
+// Shared order list row
+// ---------------------------------------------------------------------------
+
+export component OrdersHeader inherits Rectangle {
+    height: Theme.compact ? 0px : 38px;
+    visible: !Theme.compact;
+    background: Theme.surface-alt;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        Label { text: "ORDER"; width: 100px; vertical-alignment: center; }
+        Label { text: "CUSTOMER"; horizontal-stretch: 1; vertical-alignment: center; }
+        Label { text: "DATE"; width: 92px; vertical-alignment: center; }
+        Label { text: "DUE"; width: 92px; vertical-alignment: center; }
+        Label { text: "INVOICE"; width: 96px; vertical-alignment: center; }
+        Label { text: "STATUS"; width: 92px; vertical-alignment: center; }
+        Label { text: "TOTAL"; width: 120px; vertical-alignment: center; horizontal-alignment: right; }
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+}
+
+export component OrderRowView inherits Rectangle {
+    in property <OrderRow> data;
+    callback clicked();
+
+    property <string> pill-status: root.data.overdue ? "overdue" : root.data.status;
+    property <string> pill-label: root.data.overdue ? "Overdue" : root.data.status-label;
+
+    height: Theme.compact ? 64px : 52px;
+    background: ta.has-hover ? Theme.surface-alt : transparent;
+    accessible-role: button;
+    accessible-label: root.data.order-no + " " + root.data.customer + " " + root.data.total;
+    accessible-action-default => { root.clicked(); }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+
+    if !Theme.compact: HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        Text { text: root.data.order-no; width: 100px; font-weight: 600; color: Theme.primary; vertical-alignment: center; overflow: elide; }
+        Text { text: root.data.customer; horizontal-stretch: 1; color: Theme.text; vertical-alignment: center; overflow: elide; }
+        Text { text: root.data.date; width: 92px; color: Theme.text-muted; vertical-alignment: center; }
+        Text { text: root.data.due; width: 92px; color: root.data.overdue ? Theme.danger : Theme.text-muted; vertical-alignment: center; }
+        Text {
+            text: root.data.invoice-no == "" ? "—" : (root.data.versions > 1 ? root.data.invoice-no + " · v" + root.data.versions : root.data.invoice-no);
+            width: 96px;
+            color: Theme.text-muted;
+            font-size: Theme.font-sm;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        VerticalLayout {
+            width: 92px;
+            alignment: center;
+            StatusPill { status: root.pill-status; label: root.pill-label; }
+        }
+        Text { text: root.data.total; width: 120px; font-weight: 700; color: Theme.text; horizontal-alignment: right; vertical-alignment: center; }
+    }
+
+    if Theme.compact: HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            horizontal-stretch: 1;
+            Text { text: root.data.customer; font-weight: 600; color: Theme.text; overflow: elide; }
+            Text { text: root.data.order-no + " · " + root.data.date; font-size: Theme.font-sm; color: Theme.text-muted; overflow: elide; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            Text { text: root.data.total; font-weight: 700; color: Theme.text; horizontal-alignment: right; }
+            HorizontalLayout {
+                alignment: end;
+                StatusPill { status: root.pill-status; label: root.pill-label; }
+            }
+        }
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+}
+
+// ---------------------------------------------------------------------------
+// Orders list
+// ---------------------------------------------------------------------------
+
+export component OrdersPage inherits VerticalLayout {
+    padding: Theme.compact ? 16px : 24px;
+    spacing: 16px;
+
+    PageHeader {
+        title: "Orders";
+        sub: OrdersState.summary;
+        Btn {
+            text: Theme.compact ? "" : "New order";
+            icon: Icons.plus;
+            clicked => { Api.new-order(); }
+        }
+    }
+
+    VerticalLayout {
+        spacing: 10px;
+        SearchBox {
+            placeholder: "Search by order, invoice or customer";
+            text <=> OrdersState.search;
+            changed => { Api.orders-search(); }
+        }
+        // Scrolls sideways when the window is too narrow for every chip.
+        chip-strip := Flickable {
+            height: 32px;
+            content-width: chips.preferred-width;
+            content-height: 32px;
+            interactive: self.content-width > self.width;
+            chips := HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            for f in [
+                { key: "all", label: "All" },
+                { key: "draft", label: "Draft" },
+                { key: "confirmed", label: "Unpaid" },
+                { key: "overdue", label: "Overdue" },
+                { key: "paid", label: "Paid" },
+                { key: "cancelled", label: "Cancelled" },
+            ]: Chip {
+                text: f.label;
+                active: OrdersState.status-filter == f.key;
+                clicked => {
+                    OrdersState.status-filter = f.key;
+                    Api.orders-search();
+                }
+            }
+            }
+        }
+    }
+
+    Rectangle {
+        vertical-stretch: 1;
+        background: Theme.surface;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+
+        if OrdersState.rows.length == 0: EmptyState {
+            icon: Icons.orders;
+            title: OrdersState.search == "" && OrdersState.status-filter == "all" ? "No orders yet" : "No matching orders";
+            message: OrdersState.search == "" && OrdersState.status-filter == "all" ? "Create your first order to start invoicing customers." : "Try a different search or filter.";
+            if OrdersState.search == "" && OrdersState.status-filter == "all": Btn {
+                text: "Create order";
+                icon: Icons.plus;
+                clicked => { Api.new-order(); }
+            }
+        }
+
+        if OrdersState.rows.length > 0: VerticalLayout {
+            OrdersHeader { }
+            ListView {
+                for row in OrdersState.rows: OrderRowView {
+                    data: row;
+                    clicked => { Api.open-order(row.id); }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Order editor
+// ---------------------------------------------------------------------------
+
+component TotalLine inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <bool> strong: false;
+    spacing: 12px;
+    Text {
+        text: root.label;
+        color: root.strong ? Theme.text : Theme.text-muted;
+        font-size: root.strong ? Theme.font-lg : Theme.font-md;
+        font-weight: root.strong ? 700 : 400;
+        horizontal-stretch: 1;
+    }
+    Text {
+        text: root.value;
+        color: Theme.text;
+        font-size: root.strong ? Theme.font-xl : Theme.font-md;
+        font-weight: root.strong ? 800 : 600;
+        horizontal-alignment: right;
+    }
+}
+
+component ItemEditor inherits Rectangle {
+    in property <ItemRow> item;
+    in property <int> index;
+    in property <bool> removable: true;
+
+    height: layout.preferred-height;
+
+    layout := VerticalLayout {
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 8px;
+
+        if !Theme.compact: HorizontalLayout {
+            spacing: 10px;
+            LineEdit {
+                horizontal-stretch: 1;
+                placeholder-text: "Item or service";
+                text: root.item.description;
+                edited(t) => { Api.order-item-edited(root.index, "description", t); }
+            }
+            LineEdit {
+                width: 84px;
+                horizontal-alignment: right;
+                placeholder-text: "Qty";
+                text: root.item.quantity;
+                input-type: decimal;
+                edited(t) => { Api.order-item-edited(root.index, "quantity", t); }
+            }
+            LineEdit {
+                width: 120px;
+                horizontal-alignment: right;
+                placeholder-text: "0.00";
+                text: root.item.price;
+                input-type: decimal;
+                edited(t) => { Api.order-item-edited(root.index, "price", t); }
+            }
+            Text {
+                width: 110px;
+                text: root.item.amount;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                font-weight: 600;
+                color: Theme.text;
+            }
+            Btn {
+                kind: "danger-ghost";
+                small: true;
+                icon: Icons.trash;
+                enabled: root.removable;
+                clicked => { Api.order-remove-item(root.index); }
+            }
+        }
+
+        if Theme.compact: VerticalLayout {
+            spacing: 8px;
+            HorizontalLayout {
+                spacing: 8px;
+                LineEdit {
+                    horizontal-stretch: 1;
+                    placeholder-text: "Item or service";
+                    text: root.item.description;
+                    edited(t) => { Api.order-item-edited(root.index, "description", t); }
+                }
+                Btn {
+                    kind: "danger-ghost";
+                    small: true;
+                    icon: Icons.trash;
+                    enabled: root.removable;
+                    clicked => { Api.order-remove-item(root.index); }
+                }
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                LineEdit {
+                    min-width: 60px;
+                    horizontal-stretch: 1;
+                    placeholder-text: "Qty";
+                    text: root.item.quantity;
+                    input-type: decimal;
+                    edited(t) => { Api.order-item-edited(root.index, "quantity", t); }
+                }
+                LineEdit {
+                    min-width: 80px;
+                    horizontal-stretch: 2;
+                    placeholder-text: "Unit price";
+                    text: root.item.price;
+                    input-type: decimal;
+                    edited(t) => { Api.order-item-edited(root.index, "price", t); }
+                }
+                Text {
+                    min-width: 80px;
+                    text: root.item.amount;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                    font-weight: 600;
+                    color: Theme.text;
+                }
+            }
+        }
+    }
+    Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+}
+
+export component OrderEditPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+
+    PageHeader {
+        title: OrderForm.title;
+        sub: OrderForm.id == 0 ? "Fill in the details, add items, then save." : "Changes don't affect invoices already generated.";
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.order-cancel(); }
+        }
+        Btn {
+            text: "Save order";
+            icon: Icons.check;
+            clicked => { Api.order-save(); }
+        }
+    }
+
+    if OrderForm.error != "": ErrorBanner { text: OrderForm.error; }
+
+    Card {
+        SectionTitle { text: "Customer & details"; }
+        HorizontalLayout {
+            spacing: 10px;
+            SelectField {
+                label: "Customer";
+                model: OrderForm.customers;
+                current-index <=> OrderForm.customer-index;
+                selected(i) => { Api.order-customer-chosen(i); }
+            }
+            VerticalLayout {
+                alignment: end;
+                Btn {
+                    text: Theme.compact ? "" : "New customer";
+                    icon: Icons.plus;
+                    kind: "secondary";
+                    clicked => { Api.new-customer(true); }
+                }
+            }
+        }
+        if !Theme.compact: HorizontalLayout {
+            spacing: 14px;
+            Field { label: "Order date"; placeholder: "YYYY-MM-DD"; text <=> OrderForm.order-date; }
+            Field { label: "Due date"; placeholder: "YYYY-MM-DD"; text <=> OrderForm.due-date; }
+            SelectField { label: "Status"; model: OrderForm.statuses; current-index <=> OrderForm.status-index; }
+            SelectField {
+                label: "Invoice template";
+                model: OrderForm.templates;
+                current-index <=> OrderForm.template-index;
+                selected(i) => { Api.order-template-chosen(i); }
+            }
+        }
+        if Theme.compact: VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 10px;
+                Field { label: "Order date"; placeholder: "YYYY-MM-DD"; text <=> OrderForm.order-date; }
+                Field { label: "Due date"; placeholder: "YYYY-MM-DD"; text <=> OrderForm.due-date; }
+            }
+            SelectField { label: "Status"; model: OrderForm.statuses; current-index <=> OrderForm.status-index; }
+            SelectField {
+                label: "Invoice template";
+                model: OrderForm.templates;
+                current-index <=> OrderForm.template-index;
+                selected(i) => { Api.order-template-chosen(i); }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle {
+            text: "Items";
+            sub: "Quantities can be decimals, e.g. 1.5 kg.";
+        }
+        if !Theme.compact: HorizontalLayout {
+            spacing: 10px;
+            Label { text: "DESCRIPTION"; horizontal-stretch: 1; }
+            Label { text: "QTY"; width: 84px; horizontal-alignment: right; }
+            Label { text: "UNIT PRICE"; width: 120px; horizontal-alignment: right; }
+            Label { text: "AMOUNT"; width: 110px; horizontal-alignment: right; }
+            Rectangle { width: 32px; }
+        }
+        VerticalLayout {
+            spacing: 0px;
+            for item[i] in OrderForm.items: ItemEditor {
+                item: item;
+                index: i;
+                removable: OrderForm.items.length > 1;
+            }
+        }
+        HorizontalLayout {
+            alignment: start;
+            Btn {
+                text: "Add item";
+                icon: Icons.plus;
+                kind: "ghost";
+                clicked => { Api.order-add-item(); }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Summary"; }
+        if !Theme.compact: HorizontalLayout {
+            spacing: 24px;
+            AreaField {
+                label: "Notes (printed on the invoice)";
+                placeholder: "Delivery details, references…";
+                text <=> OrderForm.notes;
+                box-height: 150px;
+            }
+            VerticalLayout {
+                width: 320px;
+                spacing: 10px;
+                HorizontalLayout {
+                    spacing: 10px;
+                    Field {
+                        label: "Discount";
+                        placeholder: "0.00";
+                        input-type: decimal;
+                        text <=> OrderForm.discount;
+                        edited => { Api.order-recalc(); }
+                    }
+                    Field {
+                        label: OrderForm.tax-label + " rate %";
+                        placeholder: "0";
+                        input-type: decimal;
+                        text <=> OrderForm.tax-rate;
+                        edited => { Api.order-recalc(); }
+                    }
+                }
+                TotalLine { label: "Subtotal"; value: OrderForm.subtotal; }
+                TotalLine { label: "Discount"; value: OrderForm.discount-total; }
+                TotalLine { label: OrderForm.tax-label; value: OrderForm.tax-total; }
+                Divider { }
+                TotalLine { label: "Total"; value: OrderForm.total; strong: true; }
+            }
+        }
+        if Theme.compact: VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 10px;
+                Field {
+                    label: "Discount";
+                    placeholder: "0.00";
+                    input-type: decimal;
+                    text <=> OrderForm.discount;
+                    edited => { Api.order-recalc(); }
+                }
+                Field {
+                    label: OrderForm.tax-label + " %";
+                    placeholder: "0";
+                    input-type: decimal;
+                    text <=> OrderForm.tax-rate;
+                    edited => { Api.order-recalc(); }
+                }
+            }
+            TotalLine { label: "Subtotal"; value: OrderForm.subtotal; }
+            TotalLine { label: "Discount"; value: OrderForm.discount-total; }
+            TotalLine { label: OrderForm.tax-label; value: OrderForm.tax-total; }
+            Divider { }
+            TotalLine { label: "Total"; value: OrderForm.total; strong: true; }
+            AreaField {
+                label: "Notes (printed on the invoice)";
+                text <=> OrderForm.notes;
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: 8px;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.order-cancel(); }
+        }
+        Btn {
+            text: "Save order";
+            icon: Icons.check;
+            clicked => { Api.order-save(); }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Order detail
+// ---------------------------------------------------------------------------
+
+component VersionRowView inherits Rectangle {
+    in property <VersionRow> v;
+    height: layout.preferred-height;
+    background: v.latest ? Theme.primary-soft : transparent;
+    border-radius: Theme.radius-sm;
+
+    layout := HorizontalLayout {
+        padding: 10px;
+        spacing: 10px;
+        Rectangle {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            background: root.v.latest ? Theme.primary : Theme.neutral-soft;
+            Text {
+                text: "v" + root.v.version;
+                color: root.v.latest ? Theme.on-primary : Theme.text-muted;
+                font-weight: 700;
+                font-size: Theme.font-sm;
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
+                Text { text: root.v.total; font-weight: 700; color: Theme.text; }
+                if root.v.latest: Text { text: "Latest"; font-size: Theme.font-xs; color: Theme.primary; font-weight: 700; vertical-alignment: center; }
+            }
+            Text {
+                text: root.v.note == "" ? root.v.created : root.v.created + " · " + root.v.note;
+                font-size: Theme.font-xs;
+                color: Theme.text-muted;
+                overflow: elide;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            HorizontalLayout {
+                spacing: 2px;
+                if !AppState.mobile: Btn {
+                    kind: "ghost";
+                    small: true;
+                    icon: Icons.open;
+                    clicked => { Api.open-version(root.v.id); }
+                }
+                Btn {
+                    kind: "ghost";
+                    small: true;
+                    icon: Icons.download;
+                    clicked => { Api.download-version(root.v.id); }
+                }
+            }
+        }
+    }
+}
+
+component OrderItemsCard inherits Card {
+    SectionTitle { text: "Items"; }
+    VerticalLayout {
+        spacing: 0px;
+        for item in OrderView.items: Rectangle {
+            height: line.preferred-height;
+            line := HorizontalLayout {
+                padding-top: 10px;
+                padding-bottom: 10px;
+                spacing: 12px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 2px;
+                    Text { text: item.description; color: Theme.text; wrap: word-wrap; }
+                    Text { text: item.quantity + " × " + item.price; font-size: Theme.font-sm; color: Theme.text-muted; }
+                }
+                Text { text: item.amount; font-weight: 600; color: Theme.text; horizontal-alignment: right; }
+            }
+            Rectangle { y: parent.height - 1px; height: 1px; background: Theme.border; }
+        }
+    }
+    VerticalLayout {
+        spacing: 8px;
+        TotalLine { label: "Subtotal"; value: OrderView.subtotal; }
+        if OrderView.has-discount: TotalLine { label: "Discount"; value: OrderView.discount; }
+        TotalLine { label: OrderView.tax-label; value: OrderView.tax; }
+        Divider { }
+        TotalLine { label: "Total"; value: OrderView.total; strong: true; }
+    }
+    if OrderView.notes != "": VerticalLayout {
+        spacing: 4px;
+        Label { text: "NOTES"; }
+        Text { text: OrderView.notes; color: Theme.text-muted; wrap: word-wrap; }
+    }
+}
+
+component OrderSideCards inherits VerticalLayout {
+    spacing: 18px;
+    alignment: start;
+
+    Card {
+        SectionTitle { text: "Details"; }
+        GridLayout {
+            spacing-horizontal: 12px;
+            spacing-vertical: 8px;
+            Row {
+                Text { text: "Customer"; color: Theme.text-muted; }
+                Text { text: OrderView.customer; color: Theme.text; font-weight: 600; horizontal-alignment: right; overflow: elide; }
+            }
+            Row {
+                Text { text: "Contact"; color: Theme.text-muted; }
+                Text { text: OrderView.customer-contact == "" ? "—" : OrderView.customer-contact; color: Theme.text; horizontal-alignment: right; overflow: elide; }
+            }
+            Row {
+                Text { text: "Order date"; color: Theme.text-muted; }
+                Text { text: OrderView.date; color: Theme.text; horizontal-alignment: right; }
+            }
+            Row {
+                Text { text: "Due date"; color: Theme.text-muted; }
+                Text { text: OrderView.due; color: OrderView.overdue ? Theme.danger : Theme.text; horizontal-alignment: right; }
+            }
+            Row {
+                Text { text: "Template"; color: Theme.text-muted; }
+                Text { text: OrderView.template-name; color: Theme.text; horizontal-alignment: right; overflow: elide; }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Payment status"; }
+        if OrderView.status == "draft": InfoBanner {
+            text: "Drafts don't count towards sales. Generating an invoice confirms the order.";
+        }
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            if OrderView.status != "paid" && OrderView.status != "cancelled": Btn {
+                text: "Mark as paid";
+                icon: Icons.check;
+                clicked => { Api.set-order-status(OrderView.id, "paid"); }
+            }
+            if OrderView.status == "paid" || OrderView.status == "cancelled": Btn {
+                text: OrderView.status == "paid" ? "Mark unpaid" : "Reopen";
+                kind: "secondary";
+                clicked => { Api.set-order-status(OrderView.id, "confirmed"); }
+            }
+            if OrderView.status != "cancelled": Btn {
+                text: "Cancel order";
+                kind: "danger-ghost";
+                clicked => { Api.set-order-status(OrderView.id, "cancelled"); }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle {
+            text: "Invoice";
+            sub: OrderView.invoice-no == "" ? "Not generated yet" : OrderView.invoice-no + " · " + OrderView.versions.length + (OrderView.versions.length == 1 ? " version" : " versions");
+        }
+        // Kept as direct children of the card (no wrapping layout): wrapped
+        // text nested one level deeper is under-measured on narrow screens.
+        if OrderView.invoice-no == "": InfoBanner {
+            text: "Generate a PDF invoice from this order. If you edit the order later, generate again to create a new version — earlier versions are kept.";
+        }
+        if OrderView.invoice-no == "": HorizontalLayout {
+            alignment: start;
+            Btn {
+                text: "Generate invoice";
+                icon: Icons.invoice;
+                enabled: OrderView.status != "cancelled";
+                clicked => { Api.generate-invoice(); }
+            }
+        }
+        if OrderView.invoice-no != "": VerticalLayout {
+            spacing: 6px;
+            for v in OrderView.versions: VersionRowView { v: v; }
+            HorizontalLayout {
+                padding-top: 6px;
+                alignment: start;
+                Btn {
+                    text: "Generate new version";
+                    icon: Icons.refresh;
+                    kind: "secondary";
+                    enabled: OrderView.status != "cancelled";
+                    clicked => {
+                        OrderView.version-note = "";
+                        OrderView.generate-visible = true;
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component OrderViewPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+
+    HorizontalLayout {
+        alignment: start;
+        Btn {
+            text: "All orders";
+            icon: Icons.chevron-left;
+            kind: "ghost";
+            small: true;
+            clicked => { Api.navigate("orders"); }
+        }
+    }
+
+    PageHeader {
+        title: OrderView.order-no;
+        sub: OrderView.customer + " · " + OrderView.total;
+        VerticalLayout {
+            alignment: center;
+            StatusPill {
+                status: OrderView.overdue ? "overdue" : OrderView.status;
+                label: OrderView.overdue ? "Overdue" : OrderView.status-label;
+            }
+        }
+        Btn {
+            text: Theme.compact ? "" : "Edit";
+            icon: Icons.edit;
+            kind: "secondary";
+            clicked => { Api.edit-order(OrderView.id); }
+        }
+        if OrderView.invoice-no == "": Btn {
+            text: "";
+            icon: Icons.trash;
+            kind: "danger-ghost";
+            clicked => { Api.delete-order(OrderView.id); }
+        }
+    }
+
+    if !Theme.compact: HorizontalLayout {
+        spacing: 18px;
+        alignment: stretch;
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: start;
+            OrderItemsCard { }
+        }
+        VerticalLayout {
+            width: 380px;
+            alignment: start;
+            OrderSideCards { }
+        }
+    }
+    if Theme.compact: OrderSideCards { }
+    if Theme.compact: OrderItemsCard { }
+}
+
+export component GenerateInvoiceDialog inherits Modal {
+    title: OrderView.invoice-no == "" ? "Generate invoice" : "New invoice version";
+    sub: "A snapshot of the order, customer and template is saved as a new version. Earlier versions stay available.";
+    close => { OrderView.generate-visible = false; }
+
+    Field {
+        label: "What changed? (optional)";
+        placeholder: "e.g. Added delivery charge";
+        text <=> OrderView.version-note;
+        init => { self.focus-input(); }
+        accepted => { Api.generate-invoice(); }
+    }
+    HorizontalLayout {
+        alignment: end;
+        spacing: 8px;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { OrderView.generate-visible = false; }
+        }
+        Btn {
+            text: "Generate";
+            icon: Icons.invoice;
+            clicked => { Api.generate-invoice(); }
+        }
+    }
+}

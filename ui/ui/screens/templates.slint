@@ -1,0 +1,375 @@
+import { Theme, Icons } from "../theme.slint";
+import { Api, TemplatesState, TemplateForm, TemplateRow } from "../globals.slint";
+import {
+    Btn, Card, Field, AreaField, PageHeader, PageScroll, SectionTitle, ErrorBanner, InfoBanner,
+    Chip, Icon, Label, EmptyState
+} from "../components/widgets.slint";
+
+component TemplateCard inherits Rectangle {
+    in property <TemplateRow> data;
+
+    background: Theme.surface;
+    border-radius: Theme.radius;
+    border-width: 1px;
+    border-color: root.data.is-default ? Theme.primary : Theme.border;
+    clip: true;
+    height: layout.preferred-height;
+
+    layout := VerticalLayout {
+        Rectangle { height: 6px; background: root.data.accent; }
+        VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 12px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 2px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Text { text: root.data.name; font-size: Theme.font-lg; font-weight: 700; color: Theme.text; overflow: elide; }
+                        if root.data.is-default: VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: dt.preferred-width + 14px;
+                                height: 20px;
+                                border-radius: 10px;
+                                background: Theme.primary-soft;
+                                dt := Text { text: "Default"; font-size: Theme.font-xs; font-weight: 700; color: Theme.primary; }
+                            }
+                        }
+                    }
+                    Text { text: root.data.business; color: Theme.text-muted; overflow: elide; }
+                }
+                VerticalLayout {
+                    alignment: start;
+                    Btn {
+                        text: Theme.compact ? "" : "Edit";
+                        icon: Icons.edit;
+                        kind: "secondary";
+                        small: true;
+                        clicked => { Api.edit-template(root.data.id); }
+                    }
+                }
+            }
+            HorizontalLayout {
+                spacing: 18px;
+                for meta in [
+                    { k: "Prefix", v: root.data.prefix },
+                    { k: "Currency", v: root.data.currency },
+                    { k: "Tax", v: root.data.tax },
+                    { k: "Updated", v: root.data.updated },
+                ]: VerticalLayout {
+                    spacing: 2px;
+                    Label { text: meta.k; font-size: Theme.font-xs; }
+                    Text { text: meta.v; color: Theme.text; font-size: Theme.font-sm; overflow: elide; }
+                }
+            }
+            HorizontalLayout {
+                spacing: 4px;
+                alignment: start;
+                Btn {
+                    text: "Export XML";
+                    icon: Icons.download;
+                    kind: "ghost";
+                    small: true;
+                    clicked => { Api.export-template(root.data.id); }
+                }
+                Btn {
+                    text: Theme.compact ? "" : "Duplicate";
+                    icon: Icons.copy;
+                    kind: "ghost";
+                    small: true;
+                    clicked => { Api.duplicate-template(root.data.id); }
+                }
+                if !root.data.is-default: Btn {
+                    text: Theme.compact ? "" : "Make default";
+                    icon: Icons.star;
+                    kind: "ghost";
+                    small: true;
+                    clicked => { Api.default-template(root.data.id); }
+                }
+                if !root.data.is-default: Btn {
+                    icon: Icons.trash;
+                    kind: "danger-ghost";
+                    small: true;
+                    clicked => { Api.delete-template(root.data.id); }
+                }
+            }
+        }
+    }
+}
+
+export component TemplatesPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+
+    PageHeader {
+        title: "Invoice templates";
+        sub: Theme.compact ? "" : "Business details and invoice settings, stored as XML.";
+        Btn {
+            text: Theme.compact ? "" : "Import XML";
+            icon: Icons.upload;
+            kind: "secondary";
+            clicked => { Api.import-template(); }
+        }
+        Btn {
+            text: Theme.compact ? "" : "New template";
+            icon: Icons.plus;
+            clicked => { Api.new-template(); }
+        }
+    }
+
+    InfoBanner {
+        text: "Each order uses a template for its invoice. Export a template to edit the XML in any text editor, then import it back — or edit it right here.";
+    }
+
+    for row in TemplatesState.rows: TemplateCard { data: row; }
+}
+
+// ---------------------------------------------------------------------------
+// Editor
+// ---------------------------------------------------------------------------
+
+component InvoicePreview inherits Rectangle {
+    background: white;
+    border-radius: Theme.radius-sm;
+    border-width: 1px;
+    border-color: Theme.border;
+    clip: true;
+    height: layout.preferred-height;
+    drop-shadow-blur: 8px;
+    drop-shadow-color: #0f172a14;
+
+    layout := VerticalLayout {
+        Rectangle { height: 5px; background: TemplateForm.accent-preview; }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            HorizontalLayout {
+                spacing: 8px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 2px;
+                    Text { text: TemplateForm.business-name == "" ? "Business name" : TemplateForm.business-name; font-weight: 700; font-size: 14px; color: Theme.text; overflow: elide; }
+                    Text { text: TemplateForm.address; font-size: 10px; color: Theme.text-muted; wrap: word-wrap; max-height: 40px; }
+                }
+                Text { text: TemplateForm.title; font-size: 18px; font-weight: 700; color: TemplateForm.accent-preview; }
+            }
+            Rectangle {
+                height: 18px;
+                background: TemplateForm.accent-preview.transparentize(0.88);
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text { text: "DESCRIPTION"; font-size: 8px; font-weight: 700; color: TemplateForm.accent-preview; horizontal-stretch: 1; vertical-alignment: center; }
+                    Text { text: "AMOUNT"; font-size: 8px; font-weight: 700; color: TemplateForm.accent-preview; vertical-alignment: center; }
+                }
+            }
+            for w in [0.7, 0.5, 0.6]: Rectangle {
+                height: 6px;
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    spacing: 6px;
+                    Rectangle { width: w * 180px; border-radius: 3px; background: Theme.neutral-soft; }
+                    Rectangle { horizontal-stretch: 1; }
+                    Rectangle { width: 34px; border-radius: 3px; background: Theme.neutral-soft; }
+                }
+            }
+            HorizontalLayout {
+                alignment: end;
+                Rectangle {
+                    width: 110px;
+                    height: 20px;
+                    background: TemplateForm.accent-preview;
+                    Text { text: "TOTAL  " + TemplateForm.currency-symbol + " 0.00"; font-size: 9px; font-weight: 700; color: white; }
+                }
+            }
+            Text {
+                text: TemplateForm.notes;
+                font-size: 9px;
+                color: TemplateForm.accent-preview;
+                font-weight: 700;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+component Swatch inherits Rectangle {
+    in property <string> hex;
+    in property <color> c;
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+    background: c;
+    border-width: TemplateForm.accent == hex ? 3px : 0px;
+    border-color: Theme.text;
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => {
+            TemplateForm.accent = root.hex;
+            Api.template-accent-edited();
+        }
+    }
+}
+
+component TemplateFormBody inherits VerticalLayout {
+    spacing: 18px;
+
+    Card {
+        SectionTitle { text: "Template"; }
+        Field {
+            label: "Template name *";
+            placeholder: "e.g. Standard, Retail, Wholesale";
+            text <=> TemplateForm.name;
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Business details"; sub: "Printed at the top of every invoice."; }
+        Field { label: "Business name *"; text <=> TemplateForm.business-name; }
+        AreaField { label: "Address"; text <=> TemplateForm.address; box-height: 70px; }
+        HorizontalLayout {
+            spacing: 12px;
+            Field { label: "Phone"; text <=> TemplateForm.phone; }
+            Field { label: "Email"; text <=> TemplateForm.email; }
+        }
+        HorizontalLayout {
+            spacing: 12px;
+            Field { label: "Website"; text <=> TemplateForm.website; }
+            Field { label: "Tax / VAT number"; text <=> TemplateForm.tax-id; }
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Invoice settings"; }
+        HorizontalLayout {
+            spacing: 12px;
+            Field { label: "Document title *"; placeholder: "INVOICE"; text <=> TemplateForm.title; }
+            Field { label: "Invoice number prefix *"; placeholder: "INV-"; text <=> TemplateForm.prefix; hint: "Numbers continue across templates."; }
+        }
+        HorizontalLayout {
+            spacing: 12px;
+            Field { label: "Currency code"; placeholder: "USD"; text <=> TemplateForm.currency-code; }
+            Field { label: "Currency symbol *"; placeholder: "$"; text <=> TemplateForm.currency-symbol; }
+        }
+        HorizontalLayout {
+            spacing: 12px;
+            Field { label: "Tax label"; placeholder: "Tax, VAT, GST"; text <=> TemplateForm.tax-label; }
+            Field { label: "Default tax rate %"; placeholder: "0"; input-type: decimal; text <=> TemplateForm.tax-rate; }
+            Field { label: "Payment terms (days)"; placeholder: "14"; input-type: number; text <=> TemplateForm.terms-days; }
+        }
+        VerticalLayout {
+            spacing: 8px;
+            Label { text: "Accent colour"; }
+            HorizontalLayout {
+                spacing: 10px;
+                for s in [
+                    { hex: "#4F46E5", c: #4f46e5 },
+                    { hex: "#0EA5E9", c: #0ea5e9 },
+                    { hex: "#059669", c: #059669 },
+                    { hex: "#D97706", c: #d97706 },
+                    { hex: "#DC2626", c: #dc2626 },
+                    { hex: "#DB2777", c: #db2777 },
+                    { hex: "#0F172A", c: #0f172a },
+                ]: VerticalLayout {
+                    alignment: center;
+                    Swatch { hex: s.hex; c: s.c; }
+                }
+                Field {
+                    placeholder: "#4F46E5";
+                    text <=> TemplateForm.accent;
+                    edited => { Api.template-accent-edited(); }
+                }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Footer"; }
+        Field { label: "Thank-you line"; placeholder: "Thank you for your business!"; text <=> TemplateForm.notes; }
+        AreaField { label: "Payment instructions"; placeholder: "Bank name, account number…"; text <=> TemplateForm.payment; box-height: 64px; }
+        AreaField { label: "Terms"; placeholder: "Payment is due within 14 days."; text <=> TemplateForm.terms; box-height: 64px; }
+    }
+}
+
+export component TemplateEditPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+
+    HorizontalLayout {
+        alignment: start;
+        Btn {
+            text: "All templates";
+            icon: Icons.chevron-left;
+            kind: "ghost";
+            small: true;
+            clicked => { Api.template-cancel(); }
+        }
+    }
+
+    PageHeader {
+        title: TemplateForm.id == 0 ? "New template" : "Edit template";
+        Btn {
+            text: Theme.compact ? "" : "Export XML";
+            icon: Icons.download;
+            kind: "secondary";
+            clicked => { Api.template-export-current(); }
+        }
+        Btn {
+            text: "Save";
+            icon: Icons.check;
+            clicked => { Api.template-save(); }
+        }
+    }
+
+    if TemplateForm.error != "": ErrorBanner { text: TemplateForm.error; }
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        Chip {
+            text: "Form";
+            active: TemplateForm.tab == "form";
+            clicked => { Api.template-tab("form"); }
+        }
+        Chip {
+            text: "XML source";
+            active: TemplateForm.tab == "xml";
+            clicked => { Api.template-tab("xml"); }
+        }
+    }
+
+    if TemplateForm.tab == "form" && !Theme.compact: HorizontalLayout {
+        spacing: 18px;
+        TemplateFormBody { horizontal-stretch: 3; }
+        VerticalLayout {
+            horizontal-stretch: 2;
+            min-width: 260px;
+            max-width: 380px;
+            alignment: start;
+            spacing: 8px;
+            Label { text: "PREVIEW"; }
+            InvoicePreview { }
+        }
+    }
+    if TemplateForm.tab == "form" && Theme.compact: VerticalLayout {
+        spacing: 18px;
+        InvoicePreview { }
+        TemplateFormBody { }
+    }
+
+    if TemplateForm.tab == "xml": Card {
+        SectionTitle {
+            text: "XML source";
+            sub: "Root element <invoice-template>. Unknown elements are ignored; missing optional ones use defaults.";
+        }
+        AreaField {
+            text <=> TemplateForm.xml;
+            box-height: 460px;
+            font-family: "Consolas";
+            font-size: 13px;
+        }
+    }
+}

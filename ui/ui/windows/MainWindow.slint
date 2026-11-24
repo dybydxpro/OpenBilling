@@ -1,0 +1,687 @@
+import { Palette } from "std-widgets.slint";
+import { Theme, Icons } from "../theme.slint";
+import {
+    AppState, AuthState, DashboardState, OrdersState, OrderForm, OrderView, InvoicesState,
+    CustomersState, TemplatesState, TemplateForm, ReportsState, SettingsState, Api,
+    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal,
+    FilePicker, FileRow
+} from "../globals.slint";
+import { Btn, Icon, Modal } from "../components/widgets.slint";
+import { AuthScreen } from "../screens/auth.slint";
+import { DashboardPage } from "../screens/dashboard.slint";
+import { OrdersPage, OrderEditPage, OrderViewPage, GenerateInvoiceDialog } from "../screens/orders.slint";
+import { InvoicesPage } from "../screens/invoices.slint";
+import { CustomersPage, CustomerDialog } from "../screens/customers.slint";
+import { TemplatesPage, TemplateEditPage } from "../screens/templates.slint";
+import { ReportsPage } from "../screens/reports.slint";
+import { SettingsPage } from "../screens/settings.slint";
+
+export {
+    Theme, AppState, AuthState, DashboardState, OrdersState, OrderForm, OrderView, InvoicesState,
+    CustomersState, TemplatesState, TemplateForm, ReportsState, SettingsState, Api,
+    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal,
+    FilePicker, FileRow
+}
+
+struct NavEntry {
+    key: string,
+    label: string,
+    short: string,
+    icon: image,
+}
+
+global Nav {
+    out property <[NavEntry]> entries: [
+        { key: "dashboard", label: "Dashboard", short: "Home", icon: Icons.dashboard },
+        { key: "orders", label: "Orders", short: "Orders", icon: Icons.orders },
+        { key: "invoices", label: "Invoices", short: "Invoices", icon: Icons.invoice },
+        { key: "customers", label: "Customers", short: "Clients", icon: Icons.customers },
+        { key: "templates", label: "Templates", short: "Templates", icon: Icons.template },
+        { key: "reports", label: "Reports", short: "Reports", icon: Icons.reports },
+        { key: "settings", label: "Backup & settings", short: "Settings", icon: Icons.settings },
+    ];
+
+    // Phone tab bar: at most five tabs, so the rest live behind "More".
+    out property <[NavEntry]> primary: [
+        { key: "dashboard", label: "Dashboard", short: "Home", icon: Icons.dashboard },
+        { key: "orders", label: "Orders", short: "Orders", icon: Icons.orders },
+        { key: "invoices", label: "Invoices", short: "Invoices", icon: Icons.invoice },
+        { key: "customers", label: "Customers", short: "Clients", icon: Icons.customers },
+    ];
+    out property <[NavEntry]> more: [
+        { key: "templates", label: "Invoice templates", short: "Templates", icon: Icons.template },
+        { key: "reports", label: "Reports", short: "Reports", icon: Icons.reports },
+        { key: "settings", label: "Backup & settings", short: "Settings", icon: Icons.settings },
+    ];
+
+    public pure function in-more() -> bool {
+        return AppState.page == "templates" || AppState.page == "template-edit"
+            || AppState.page == "reports" || AppState.page == "settings";
+    }
+
+    public pure function is-active(key: string) -> bool {
+        if key == AppState.page { return true; }
+        if key == "orders" && (AppState.page == "order-edit" || AppState.page == "order-view") { return true; }
+        if key == "templates" && AppState.page == "template-edit" { return true; }
+        return false;
+    }
+}
+
+component SideNavItem inherits Rectangle {
+    in property <NavEntry> entry;
+    property <bool> active: Nav.is-active(entry.key);
+
+    height: 42px;
+    border-radius: 8px;
+    background: active ? Theme.primary : (ta.has-hover ? Theme.nav-active : transparent);
+    animate background { duration: 120ms; }
+    accessible-role: tab;
+    accessible-label: entry.label;
+    accessible-action-default => { Api.navigate(root.entry.key); }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { Api.navigate(root.entry.key); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.entry.icon;
+                colorize: root.active ? white : Theme.nav-text;
+                size: 19px;
+            }
+        }
+        Text {
+            text: root.entry.label;
+            color: root.active ? white : Theme.nav-text;
+            font-size: Theme.font-md;
+            font-weight: root.active ? 700 : 500;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component Sidebar inherits Rectangle {
+    width: 236px;
+    background: Theme.nav-bg;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 4px;
+
+        HorizontalLayout {
+            padding: 6px;
+            padding-bottom: 22px;
+            spacing: 10px;
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+                background: @linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+                Icon {
+                    source: Icons.invoice;
+                    colorize: white;
+                    size: 20px;
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                Text {
+                    text: "OpenBilling";
+                    color: white;
+                    font-size: Theme.font-lg;
+                    font-weight: 700;
+                }
+                Text {
+                    text: AppState.business-name;
+                    color: Theme.nav-text;
+                    font-size: Theme.font-xs;
+                    overflow: elide;
+                }
+            }
+        }
+
+        for entry in Nav.entries: SideNavItem { entry: entry; }
+
+        Rectangle { vertical-stretch: 1; }
+
+        lock := Rectangle {
+            height: 42px;
+            border-radius: 8px;
+            background: lock-ta.has-hover ? Theme.nav-active : transparent;
+            lock-ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Api.lock(); }
+            }
+            HorizontalLayout {
+                padding-left: 12px;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Icon {
+                        source: Icons.lock;
+                        colorize: Theme.nav-text;
+                        size: 19px;
+                    }
+                }
+                Text {
+                    text: "Lock";
+                    color: Theme.nav-text;
+                    font-size: Theme.font-md;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+component TopBar inherits Rectangle {
+    height: 56px;
+    background: Theme.nav-bg;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 8px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+                background: Theme.primary;
+                Icon {
+                    source: Icons.invoice;
+                    colorize: white;
+                    size: 17px;
+                }
+            }
+        }
+        Text {
+            text: AppState.business-name;
+            color: white;
+            font-size: Theme.font-lg;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 40px;
+                height: 40px;
+                border-radius: 8px;
+                background: top-lock.has-hover ? Theme.nav-active : transparent;
+                top-lock := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Api.lock(); }
+                }
+                Icon {
+                    source: Icons.lock;
+                    colorize: Theme.nav-text;
+                    size: 20px;
+                }
+            }
+        }
+    }
+}
+
+component BottomTab inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> active;
+    callback clicked();
+
+    horizontal-stretch: 1;
+    accessible-role: tab;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 3px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 52px;
+                height: 28px;
+                border-radius: 14px;
+                background: root.active ? Theme.primary-soft : transparent;
+                animate background { duration: 150ms; }
+                Icon {
+                    source: root.icon;
+                    colorize: root.active ? Theme.primary : Theme.text-subtle;
+                    size: 20px;
+                }
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: 11px;
+            font-weight: root.active ? 700 : 500;
+            color: root.active ? Theme.primary : Theme.text-muted;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+// Phone tab bar: four main destinations plus "More" (max five tabs).
+component BottomNav inherits Rectangle {
+    height: 64px;
+    background: Theme.surface;
+    Rectangle { y: 0; height: 1px; background: Theme.border; }
+    HorizontalLayout {
+        padding-top: 4px;
+        for entry in Nav.primary: BottomTab {
+            label: entry.short;
+            icon: entry.icon;
+            active: !AppState.more-open && Nav.is-active(entry.key);
+            clicked => {
+                AppState.more-open = false;
+                Api.navigate(entry.key);
+            }
+        }
+        BottomTab {
+            label: "More";
+            icon: Icons.more;
+            active: AppState.more-open || Nav.in-more();
+            clicked => { AppState.more-open = !AppState.more-open; }
+        }
+    }
+}
+
+component MoreRow inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> active;
+    in property <bool> danger;
+    callback clicked();
+
+    height: 56px;
+    border-radius: Theme.radius-sm;
+    background: ta.pressed ? Theme.primary-soft-2 : (root.active ? Theme.primary-soft : transparent);
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+                background: root.danger ? Theme.danger-soft : Theme.primary-soft;
+                Icon {
+                    source: root.icon;
+                    colorize: root.danger ? Theme.danger : Theme.primary;
+                    size: 19px;
+                }
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: Theme.font-lg;
+            font-weight: 600;
+            color: root.danger ? Theme.danger : Theme.text;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        if !root.danger: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: Icons.chevron-right;
+                colorize: Theme.text-subtle;
+                size: 16px;
+            }
+        }
+    }
+}
+
+// Bottom sheet opened by the "More" tab.
+component MoreSheet inherits Rectangle {
+    background: #0f172a59;
+    TouchArea {
+        clicked => { AppState.more-open = false; }
+    }
+    sheet := Rectangle {
+        y: parent.height - self.height;
+        height: body.preferred-height;
+        background: Theme.surface;
+        border-radius: Theme.radius-lg;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #0f172a33;
+        // Swallow taps on the sheet itself.
+        TouchArea { }
+        body := VerticalLayout {
+            padding: 16px;
+            padding-bottom: 24px;
+            spacing: 4px;
+            HorizontalLayout {
+                alignment: center;
+                padding-bottom: 8px;
+                Rectangle {
+                    width: 40px;
+                    height: 4px;
+                    border-radius: 2px;
+                    background: Theme.border-strong;
+                }
+            }
+            for entry in Nav.more: MoreRow {
+                label: entry.label;
+                icon: entry.icon;
+                active: Nav.is-active(entry.key);
+                clicked => {
+                    AppState.more-open = false;
+                    Api.navigate(entry.key);
+                }
+            }
+            Rectangle {
+                height: 1px;
+                background: Theme.border;
+            }
+            MoreRow {
+                label: "Lock";
+                icon: Icons.lock;
+                danger: true;
+                clicked => {
+                    AppState.more-open = false;
+                    Api.lock();
+                }
+            }
+        }
+    }
+}
+
+component Toast inherits Rectangle {
+    property <color> tone: AppState.toast-kind == "error" ? Theme.danger : (AppState.toast-kind == "success" ? Theme.success : Theme.primary);
+    in property <length> max-width-avail: 600px;
+    width: min(root.max-width-avail, max(280px, t.preferred-width + 90px));
+    height: max(48px, t.preferred-height + 26px);
+    border-radius: Theme.radius;
+    background: Theme.text;
+    drop-shadow-blur: 18px;
+    drop-shadow-color: #0f172a40;
+    drop-shadow-offset-y: 4px;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 6px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                border-radius: 11px;
+                background: root.tone;
+                Icon {
+                    source: AppState.toast-kind == "error" ? Icons.alert : (AppState.toast-kind == "success" ? Icons.check : Icons.info);
+                    colorize: white;
+                    size: 13px;
+                }
+            }
+        }
+        t := Text {
+            text: AppState.toast-text;
+            color: white;
+            font-size: Theme.font-md;
+            wrap: word-wrap;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: 6px;
+                background: close-ta.has-hover ? #ffffff1f : transparent;
+                close-ta := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Api.dismiss-toast(); }
+                }
+                Icon {
+                    source: Icons.close;
+                    colorize: #cbd5e1;
+                    size: 15px;
+                }
+            }
+        }
+    }
+}
+
+component ConfirmDialog inherits Modal {
+    title: AppState.confirm-title;
+    sub: AppState.confirm-message;
+    card-width: 460px;
+    close => { Api.confirm-cancelled(); }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: 8px;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.confirm-cancelled(); }
+        }
+        Btn {
+            text: AppState.confirm-action-label;
+            kind: AppState.confirm-danger ? "danger" : "primary";
+            clicked => { Api.confirm-accepted(); }
+        }
+    }
+}
+
+component FilePickerDialog inherits Modal {
+    title: FilePicker.title;
+    sub: "Files in the OpenBilling folder";
+    card-width: 520px;
+    close => { Api.file-picker-cancel(); }
+
+    if FilePicker.files.length == 0: VerticalLayout {
+        spacing: 8px;
+        Text {
+            text: FilePicker.empty-text;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+        Text {
+            text: AppState.export-folder;
+            color: Theme.text-subtle;
+            font-size: Theme.font-xs;
+            wrap: char-wrap;
+        }
+    }
+
+    if FilePicker.files.length > 0: Flickable {
+        height: min(360px, list.preferred-height);
+        content-height: list.preferred-height;
+        list := VerticalLayout {
+            width: parent.width;
+            for f[i] in FilePicker.files: Rectangle {
+                height: 58px;
+                border-radius: Theme.radius-sm;
+                background: ta.pressed ? Theme.primary-soft-2 : (ta.has-hover ? Theme.primary-soft : transparent);
+                ta := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Api.file-picked(i); }
+                }
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 8px;
+                            background: Theme.primary-soft;
+                            Icon {
+                                source: Icons.invoice;
+                                colorize: Theme.primary;
+                                size: 18px;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text { text: f.name; color: Theme.text; font-weight: 600; overflow: elide; }
+                        Text { text: f.detail; color: Theme.text-muted; font-size: Theme.font-xs; }
+                    }
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.file-picker-cancel(); }
+        }
+    }
+}
+
+component Shell inherits Rectangle {
+    background: Theme.bg;
+    HorizontalLayout {
+        if !Theme.compact: Sidebar { }
+        VerticalLayout {
+            if Theme.compact: TopBar { }
+            Rectangle {
+                vertical-stretch: 1;
+                if AppState.page == "dashboard": DashboardPage { }
+                if AppState.page == "orders": OrdersPage { }
+                if AppState.page == "order-edit": OrderEditPage { }
+                if AppState.page == "order-view": OrderViewPage { }
+                if AppState.page == "invoices": InvoicesPage { }
+                if AppState.page == "customers": CustomersPage { }
+                if AppState.page == "templates": TemplatesPage { }
+                if AppState.page == "template-edit": TemplateEditPage { }
+                if AppState.page == "reports": ReportsPage { }
+                if AppState.page == "settings": SettingsPage { }
+                if Theme.compact && AppState.more-open: MoreSheet { }
+            }
+            if Theme.compact: BottomNav { }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "OpenBilling";
+    icon: @image-url("../../assets/icons/invoice.svg");
+    preferred-width: 1280px;
+    preferred-height: 820px;
+    min-width: 360px;
+    min-height: 560px;
+    background: Theme.bg;
+    default-font-size: 14px;
+
+    // Copies text with Slint's clipboard (works on desktop, Android and iOS).
+    callback copy-to-clipboard(string);
+    copy-to-clipboard(text) => {
+        clip.text = text;
+        clip.select-all();
+        clip.copy();
+        clip.text = "";
+    }
+
+    init => {
+        Palette.color-scheme = ColorScheme.light;
+        Theme.compact = self.width < 880px;
+    }
+    changed width => { Theme.compact = self.width < 880px; }
+
+    // Phones: keep content out of the status bar / notch / gesture bar, and
+    // shrink it while the on-screen keyboard is open so fields stay reachable.
+    property <length> inset-top: self.safe-area-insets.top;
+    property <length> inset-bottom: self.safe-area-insets.bottom;
+    property <length> keyboard: self.virtual-keyboard-size.height > 0
+        ? max(0px, self.height - self.virtual-keyboard-position.y - self.inset-bottom)
+        : 0px;
+
+    // Status-bar backdrop. Always dark: Android draws light status-bar icons.
+    Rectangle {
+        y: 0;
+        height: root.inset-top;
+        background: Theme.nav-bg;
+    }
+
+    // Root key handler. Its capture phase sees every key before the focused
+    // element, so the Android Back button navigates inside the app instead of
+    // closing it (only unhandled Back presses leave the app).
+    // Gives keyboard focus back to the root handler (after a page change or a
+    // dialog closes) so Back keeps working.
+    public function reclaim-focus() { keys.focus(); }
+    property <bool> any-dialog: CustomersState.dialog-visible || OrderView.generate-visible
+        || FilePicker.visible || AppState.confirm-visible || AppState.more-open;
+    changed any-dialog => { if !self.any-dialog { keys.focus(); } }
+    changed page-key => { keys.focus(); }
+    property <string> page-key: AppState.screen == "app" ? AppState.page : "";
+
+    keys := FocusScope {
+        focus-on-click: false;
+        init => { self.focus(); }
+        property <bool> back-down: false;
+        capture-key-pressed(e) => {
+            if e.text == Key.Back {
+                self.back-down = Api.back();
+                return self.back-down ? accept : reject;
+            }
+            reject
+        }
+        capture-key-released(e) => {
+            if e.text == Key.Back && self.back-down {
+                self.back-down = false;
+                return accept;
+            }
+            reject
+        }
+
+        safe := Rectangle {
+            x: root.safe-area-insets.left;
+            y: root.inset-top;
+            width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+            height: root.height - root.inset-top - root.inset-bottom - root.keyboard;
+
+            if AppState.screen == "auth": AuthScreen { }
+            if AppState.screen == "app": Shell { }
+
+            if CustomersState.dialog-visible: CustomerDialog { }
+            if OrderView.generate-visible: GenerateInvoiceDialog { }
+            if FilePicker.visible: FilePickerDialog { }
+            if AppState.confirm-visible: ConfirmDialog { }
+
+            if AppState.toast-visible: Toast {
+                max-width-avail: min(560px, parent.width - 32px);
+                x: (parent.width - self.width) / 2;
+                y: parent.height - self.height - (Theme.compact && AppState.screen == "app" ? 78px : 24px);
+            }
+        }
+    }
+
+    clip := TextInput {
+        x: 0;
+        y: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        enabled: false;
+    }
+}

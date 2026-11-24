@@ -1,0 +1,40 @@
+# XcodeGen spec for the iOS app (run on a Mac): `xcodegen generate && open OpenBilling.xcodeproj`
+# The Rust binary `openbilling-mobile` *is* the app executable; Xcode only
+# packages and signs it.
+name: OpenBilling
+options:
+  bundleIdPrefix: com.openbilling
+  deploymentTarget:
+    iOS: "15.0"
+targets:
+  OpenBilling:
+    type: application
+    platform: iOS
+    sources:
+      - path: Assets.xcassets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.openbilling.app
+        PRODUCT_NAME: OpenBilling
+        EXECUTABLE_NAME: OpenBilling
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Info.plist
+        # Set your team here or in Xcode's Signing & Capabilities tab.
+        DEVELOPMENT_TEAM: ""
+    postCompileScripts:
+      - name: Build Rust app
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          export PATH="$HOME/.cargo/bin:$PATH"
+          if [ "$PLATFORM_NAME" = "iphonesimulator" ]; then
+            TARGET=aarch64-apple-ios-sim
+          else
+            TARGET=aarch64-apple-ios
+          fi
+          PROFILE=$([ "$CONFIGURATION" = "Release" ] && echo release || echo debug)
+          FLAG=$([ "$PROFILE" = "release" ] && echo --release || echo "")
+          cd "$SRCROOT/../.."
+          cargo build -p app-mobile --bin openbilling-mobile --target "$TARGET" $FLAG
+          cp "target/$TARGET/$PROFILE/openbilling-mobile" "$TARGET_BUILD_DIR/$EXECUTABLE_PATH"
