@@ -31,10 +31,17 @@ pub fn init(ctx: &Rc<Ctx>) {
 pub fn open(ctx: &Rc<Ctx>) {
     let ui_ = ctx.ui();
     let s = ui_.global::<ReportsState>();
-    let list = ctx.with_conn(|c| customers::list(c, "")).unwrap_or_default();
+    let list = ctx
+        .with_conn(|c| customers::list(c, ""))
+        .unwrap_or_default();
     let selected = s.get_customer_index();
     let selected_id = (selected > 0)
-        .then(|| ctx.report_customer_ids.borrow().get(selected as usize - 1).copied())
+        .then(|| {
+            ctx.report_customer_ids
+                .borrow()
+                .get(selected as usize - 1)
+                .copied()
+        })
         .flatten();
     *ctx.report_customer_ids.borrow_mut() = list.iter().map(|c| c.id).collect();
     s.set_customers(strings(
@@ -83,14 +90,24 @@ fn current_filter(ctx: &Ctx) -> OrderFilter {
         to: Some(s.get_to().to_string()),
         status: (status_idx > 0).then(|| status_from_index(status_idx - 1)),
         customer_id: (cust_idx > 0)
-            .then(|| ctx.report_customer_ids.borrow().get(cust_idx as usize - 1).copied())
+            .then(|| {
+                ctx.report_customer_ids
+                    .borrow()
+                    .get(cust_idx as usize - 1)
+                    .copied()
+            })
             .flatten(),
         ..Default::default()
     }
 }
 
 fn kpi(label: &str, value: String, hint: String, tone: &str) -> Kpi {
-    Kpi { label: label.into(), value: value.into(), hint: hint.into(), tone: tone.into() }
+    Kpi {
+        label: label.into(),
+        value: value.into(),
+        hint: hint.into(),
+        tone: tone.into(),
+    }
 }
 
 fn run(ctx: &Rc<Ctx>) {
@@ -122,27 +139,60 @@ fn run(ctx: &Rc<Ctx>) {
     );
 
     s.set_kpis(model(vec![
-        kpi("Sales", money(sum.sales_cents), "Unpaid + paid orders".into(), "neutral"),
-        kpi("Paid", money(sum.paid_cents), "Money received".into(), "good"),
+        kpi(
+            "Sales",
+            money(sum.sales_cents),
+            "Unpaid + paid orders".into(),
+            "neutral",
+        ),
+        kpi(
+            "Paid",
+            money(sum.paid_cents),
+            "Money received".into(),
+            "good",
+        ),
         kpi(
             "Outstanding",
             money(sum.outstanding_cents),
             "Awaiting payment".into(),
-            if sum.outstanding_cents > 0 { "warn" } else { "neutral" },
+            if sum.outstanding_cents > 0 {
+                "warn"
+            } else {
+                "neutral"
+            },
         ),
     ]));
     s.set_kpis_2(model(vec![
         kpi(
             "Orders",
             sum.order_count.to_string(),
-            format!("{} draft · {} cancelled", sum.draft_count, sum.cancelled_count),
+            format!(
+                "{} draft · {} cancelled",
+                sum.draft_count, sum.cancelled_count
+            ),
             "neutral",
         ),
-        kpi("Average order", money(sum.average_order_cents), "Per unpaid or paid order".into(), "neutral"),
-        kpi("Tax", money(sum.tax_cents), "Included in sales".into(), "neutral"),
+        kpi(
+            "Average order",
+            money(sum.average_order_cents),
+            "Per unpaid or paid order".into(),
+            "neutral",
+        ),
+        kpi(
+            "Tax",
+            money(sum.tax_cents),
+            "Included in sales".into(),
+            "neutral",
+        ),
     ]));
 
-    let max = report.by_month.iter().map(|(_, v)| *v).max().unwrap_or(0).max(1);
+    let max = report
+        .by_month
+        .iter()
+        .map(|(_, v)| *v)
+        .max()
+        .unwrap_or(0)
+        .max(1);
     // Keep the chart readable: show the most recent 12 months in range.
     let months = &report.by_month[report.by_month.len().saturating_sub(12)..];
     s.set_by_month(model(
@@ -159,7 +209,10 @@ fn run(ctx: &Rc<Ctx>) {
             .collect(),
     ));
 
-    let top = report.by_customer.first().map_or(1, |c| c.sales_cents.max(1));
+    let top = report
+        .by_customer
+        .first()
+        .map_or(1, |c| c.sales_cents.max(1));
     s.set_by_customer(model(
         report
             .by_customer
@@ -167,8 +220,12 @@ fn run(ctx: &Rc<Ctx>) {
             .take(8)
             .map(|c| NameTotal {
                 name: c.customer_name.as_str().into(),
-                detail: format!("{} order{}", c.order_count, if c.order_count == 1 { "" } else { "s" })
-                    .into(),
+                detail: format!(
+                    "{} order{}",
+                    c.order_count,
+                    if c.order_count == 1 { "" } else { "s" }
+                )
+                .into(),
                 total: money(c.sales_cents).into(),
                 ratio: c.sales_cents as f32 / top as f32,
             })
@@ -186,7 +243,8 @@ fn export(ctx: &Rc<Ctx>) {
         Err(e) => return ctx.fail(&e),
     };
     let name = format!("OpenBilling-report-{}.csv", Local::now().format("%Y-%m-%d"));
-    let Some(path) = files::save_dialog("Export report", &name, ("CSV spreadsheet", &["csv"])) else {
+    let Some(path) = files::save_dialog("Export report", &name, ("CSV spreadsheet", &["csv"]))
+    else {
         return;
     };
     // BOM so spreadsheet apps detect UTF-8.
@@ -201,4 +259,3 @@ fn export(ctx: &Rc<Ctx>) {
         Err(e) => ctx.toast("error", format!("Couldn't save the file: {e}")),
     }
 }
-

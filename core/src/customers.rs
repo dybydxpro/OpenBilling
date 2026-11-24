@@ -71,9 +71,13 @@ pub fn list(conn: &Connection, search: &str) -> Result<Vec<Customer>> {
 }
 
 pub fn get(conn: &Connection, id: i64) -> Result<Customer> {
-    conn.query_row(&format!("{SELECT} WHERE c.id = ?1 GROUP BY c.id"), [id], map_row)
-        .optional()?
-        .ok_or(CoreError::NotFound("Customer"))
+    conn.query_row(
+        &format!("{SELECT} WHERE c.id = ?1 GROUP BY c.id"),
+        [id],
+        map_row,
+    )
+    .optional()?
+    .ok_or(CoreError::NotFound("Customer"))
 }
 
 pub fn create(conn: &Connection, input: &CustomerInput) -> Result<i64> {
@@ -95,7 +99,13 @@ pub fn update(conn: &Connection, id: i64, input: &CustomerInput) -> Result<()> {
     input.validate()?;
     let n = conn.execute(
         "UPDATE customers SET name = ?1, email = ?2, phone = ?3, address = ?4 WHERE id = ?5",
-        params![input.name.trim(), input.email.trim(), input.phone.trim(), input.address.trim(), id],
+        params![
+            input.name.trim(),
+            input.email.trim(),
+            input.phone.trim(),
+            input.address.trim(),
+            id
+        ],
     )?;
     if n == 0 {
         return Err(CoreError::NotFound("Customer"));
@@ -104,8 +114,11 @@ pub fn update(conn: &Connection, id: i64, input: &CustomerInput) -> Result<()> {
 }
 
 pub fn delete(conn: &Connection, id: i64) -> Result<()> {
-    let orders: i64 =
-        conn.query_row("SELECT COUNT(*) FROM orders WHERE customer_id = ?1", [id], |r| r.get(0))?;
+    let orders: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM orders WHERE customer_id = ?1",
+        [id],
+        |r| r.get(0),
+    )?;
     if orders > 0 {
         return invalid(format!(
             "This customer has {orders} order{} and can't be deleted.",

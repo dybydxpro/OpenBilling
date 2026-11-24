@@ -36,8 +36,14 @@ pub fn init(ctx: &Rc<Ctx>) {
     api.on_order_item_edited(move |i, field, value| item_edited(&c, i as usize, &field, &value));
     let c = ctx.clone();
     api.on_order_add_item(move || {
-        c.draft.borrow_mut().items.push(ItemDraft { quantity: "1".into(), ..Default::default() });
-        c.items_model.push(ItemRow { quantity: "1".into(), ..Default::default() });
+        c.draft.borrow_mut().items.push(ItemDraft {
+            quantity: "1".into(),
+            ..Default::default()
+        });
+        c.items_model.push(ItemRow {
+            quantity: "1".into(),
+            ..Default::default()
+        });
         recalc(&c);
     });
     let c = ctx.clone();
@@ -130,12 +136,18 @@ pub fn show_for_customer(ctx: &Rc<Ctx>, name: &str) {
 
 /// Refreshes the customer list in the order form, keeping or selecting `select_id`.
 pub fn load_customer_choices(ctx: &Ctx, select_id: Option<i64>) {
-    let list = ctx.with_conn(|c| customers::list(c, "")).unwrap_or_default();
+    let list = ctx
+        .with_conn(|c| customers::list(c, ""))
+        .unwrap_or_default();
     let ui_ = ctx.ui();
     let form = ui_.global::<OrderForm>();
     let current = select_id.or_else(|| {
         let idx = form.get_customer_index();
-        ctx.customer_ids.borrow().get(idx.max(0) as usize).copied().filter(|_| idx >= 0)
+        ctx.customer_ids
+            .borrow()
+            .get(idx.max(0) as usize)
+            .copied()
+            .filter(|_| idx >= 0)
     });
     *ctx.customer_ids.borrow_mut() = list.iter().map(|c| c.id).collect();
     form.set_customers(strings(list.iter().map(|c| c.name.clone())));
@@ -152,7 +164,11 @@ fn open_editor(ctx: &Rc<Ctx>, id: Option<i64>) {
     let templates = ctx.with_conn(templates::list).unwrap_or_default();
     *ctx.template_ids.borrow_mut() = templates.iter().map(|t| t.id).collect();
     form.set_templates(strings(templates.iter().map(|t| {
-        if t.is_default { format!("{} (default)", t.template.name) } else { t.template.name.clone() }
+        if t.is_default {
+            format!("{} (default)", t.template.name)
+        } else {
+            t.template.name.clone()
+        }
     })));
 
     let order = match id {
@@ -172,7 +188,10 @@ fn open_editor(ctx: &Rc<Ctx>, id: Option<i64>) {
         .or_else(|| templates.iter().position(|t| t.is_default))
         .unwrap_or(0);
     form.set_template_index(t_index as i32);
-    let template = templates.get(t_index).map(|t| t.template.clone()).unwrap_or_default();
+    let template = templates
+        .get(t_index)
+        .map(|t| t.template.clone())
+        .unwrap_or_default();
 
     let mut draft = ctx.draft.borrow_mut();
     draft.id = id;
@@ -188,7 +207,14 @@ fn open_editor(ctx: &Rc<Ctx>, id: Option<i64>) {
             form.set_order_date(o.order_date.as_str().into());
             form.set_due_date(o.due_date.as_str().into());
             form.set_notes(o.notes.as_str().into());
-            form.set_discount(if o.totals.discount_cents > 0 { format_amount(o.totals.discount_cents) } else { String::new() }.into());
+            form.set_discount(
+                if o.totals.discount_cents > 0 {
+                    format_amount(o.totals.discount_cents)
+                } else {
+                    String::new()
+                }
+                .into(),
+            );
             form.set_tax_rate(format_percent(o.tax_rate).into());
             draft.items = o
                 .items
@@ -211,7 +237,10 @@ fn open_editor(ctx: &Rc<Ctx>, id: Option<i64>) {
             form.set_notes(SharedString::new());
             form.set_discount(SharedString::new());
             form.set_tax_rate(format_percent(template.settings.default_tax_rate).into());
-            draft.items = vec![ItemDraft { quantity: "1".into(), ..Default::default() }];
+            draft.items = vec![ItemDraft {
+                quantity: "1".into(),
+                ..Default::default()
+            }];
         }
     }
 
@@ -228,7 +257,6 @@ fn open_editor(ctx: &Rc<Ctx>, id: Option<i64>) {
     drop(draft);
     ctx.items_model.set_vec(rows);
     form.set_items(ctx.items_model.clone().into());
-    form.set_generation(form.get_generation() + 1);
     recalc(ctx);
     ui.global::<crate::AppState>().set_page("order-edit".into());
 }
@@ -236,7 +264,9 @@ fn open_editor(ctx: &Rc<Ctx>, id: Option<i64>) {
 fn item_edited(ctx: &Rc<Ctx>, index: usize, field: &str, value: &str) {
     {
         let mut draft = ctx.draft.borrow_mut();
-        let Some(item) = draft.items.get_mut(index) else { return };
+        let Some(item) = draft.items.get_mut(index) else {
+            return;
+        };
         match field {
             "description" => item.description = value.to_string(),
             "quantity" => item.quantity = value.to_string(),
@@ -280,15 +310,29 @@ fn recalc(ctx: &Rc<Ctx>) {
     let t = compute_totals(&items, discount, tax_rate);
     form.set_subtotal(format_money(t.subtotal_cents, &sym).into());
     form.set_discount_total(
-        if t.discount_cents > 0 { format!("-{}", format_money(t.discount_cents, &sym)) } else { format_money(0, &sym) }.into(),
+        if t.discount_cents > 0 {
+            format!("-{}", format_money(t.discount_cents, &sym))
+        } else {
+            format_money(0, &sym)
+        }
+        .into(),
     );
     form.set_tax_total(format_money(t.tax_cents, &sym).into());
     form.set_total(format_money(t.total_cents, &sym).into());
 }
 
 fn template_chosen(ctx: &Rc<Ctx>, index: i32) {
-    let Some(id) = ctx.template_ids.borrow().get(index.max(0) as usize).copied() else { return };
-    let Ok(t) = ctx.with_conn(|c| templates::get(c, id)) else { return };
+    let Some(id) = ctx
+        .template_ids
+        .borrow()
+        .get(index.max(0) as usize)
+        .copied()
+    else {
+        return;
+    };
+    let Ok(t) = ctx.with_conn(|c| templates::get(c, id)) else {
+        return;
+    };
     let ui_ = ctx.ui();
     let form = ui_.global::<OrderForm>();
     let s = &t.template.settings;
@@ -313,9 +357,14 @@ fn build_input(ctx: &Ctx) -> app_core::Result<OrderInput> {
         .get(form.get_customer_index().max(0) as usize)
         .copied()
         .filter(|_| form.get_customer_index() >= 0)
-        .ok_or_else(|| app_core::CoreError::Validation("Choose a customer for this order.".into()))?;
-    let template_id =
-        ctx.template_ids.borrow().get(form.get_template_index().max(0) as usize).copied();
+        .ok_or_else(|| {
+            app_core::CoreError::Validation("Choose a customer for this order.".into())
+        })?;
+    let template_id = ctx
+        .template_ids
+        .borrow()
+        .get(form.get_template_index().max(0) as usize)
+        .copied();
 
     let mut items = Vec::new();
     for (i, d) in ctx.draft.borrow().items.iter().enumerate() {
@@ -324,9 +373,8 @@ fn build_input(ctx: &Ctx) -> app_core::Result<OrderInput> {
             continue; // ignore empty trailing rows
         }
         let n = i + 1;
-        let wrap = |e: app_core::CoreError| {
-            app_core::CoreError::Validation(format!("Item {n}: {e}"))
-        };
+        let wrap =
+            |e: app_core::CoreError| app_core::CoreError::Validation(format!("Item {n}: {e}"));
         items.push(OrderItem {
             description: d.description.trim().to_string(),
             quantity: parse_quantity(&d.quantity).map_err(wrap)?,
@@ -360,7 +408,11 @@ fn save(ctx: &Rc<Ctx>) {
     match result {
         Ok(saved_id) => {
             form.set_error(SharedString::new());
-            ctx.success(if id.is_some() { "Order updated" } else { "Order created" });
+            ctx.success(if id.is_some() {
+                "Order updated"
+            } else {
+                "Order created"
+            });
             open_view(ctx, saved_id);
         }
         Err(e) => {
@@ -421,21 +473,33 @@ pub fn open_view(ctx: &Rc<Ctx>, id: i64) {
     v.set_subtotal(money(order.totals.subtotal_cents).into());
     v.set_has_discount(order.totals.discount_cents > 0);
     v.set_discount(format!("-{}", money(order.totals.discount_cents)).into());
-    v.set_tax_label(format!("{} ({}%)", template.settings.tax_label, format_percent(order.tax_rate)).into());
+    v.set_tax_label(
+        format!(
+            "{} ({}%)",
+            template.settings.tax_label,
+            format_percent(order.tax_rate)
+        )
+        .into(),
+    );
     v.set_tax(money(order.totals.tax_cents).into());
     v.set_total(money(order.totals.total_cents).into());
     v.set_notes(order.notes.as_str().into());
     v.set_invoice_no(order.invoice_no.clone().unwrap_or_default().into());
     let versions = order
         .invoice_id
-        .map(|iid| ctx.with_conn(|c| invoices::versions(c, iid)).unwrap_or_default())
+        .map(|iid| {
+            ctx.with_conn(|c| invoices::versions(c, iid))
+                .unwrap_or_default()
+        })
         .unwrap_or_default();
     v.set_versions(model(version_rows(&versions, &sym)));
     ui.global::<crate::AppState>().set_page("order-view".into());
 }
 
 fn set_status(ctx: &Rc<Ctx>, id: i64, status: &str) {
-    let Some(status) = OrderStatus::parse(status) else { return };
+    let Some(status) = OrderStatus::parse(status) else {
+        return;
+    };
     let apply = move |c: &Rc<Ctx>| match c.with_conn(|conn| orders::set_status(conn, id, status)) {
         Ok(()) => {
             c.success(format!("Order marked as {}", status.label().to_lowercase()));
@@ -482,7 +546,10 @@ fn generate_invoice(ctx: &Rc<Ctx>) {
             v.set_generate_visible(false);
             open_view(ctx, order_id);
             let snap = &generated.snapshot;
-            ctx.success(format!("{} version {} created", snap.invoice_no, snap.version));
+            ctx.success(format!(
+                "{} version {} created",
+                snap.invoice_no, snap.version
+            ));
             // Offer to download straight away.
             save_snapshot(ctx, snap);
         }
@@ -498,8 +565,11 @@ fn save_snapshot(ctx: &Ctx, snap: &invoices::InvoiceSnapshot) {
         Ok(b) => b,
         Err(e) => return ctx.fail(&e),
     };
-    let Some(path) = files::save_dialog("Save invoice PDF", &snap.file_name(), ("PDF document", &["pdf"]))
-    else {
+    let Some(path) = files::save_dialog(
+        "Save invoice PDF",
+        &snap.file_name(),
+        ("PDF document", &["pdf"]),
+    ) else {
         return;
     };
     match std::fs::write(&path, bytes) {

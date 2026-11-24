@@ -39,7 +39,11 @@ struct Pen<'a> {
 impl Pen<'_> {
     fn text(&self, s: &str, size: f32, x: f32, y: f32, bold: bool, color: (u8, u8, u8)) {
         self.layer.set_fill_color(rgb(color));
-        let font = if bold { &self.fonts.bold } else { &self.fonts.regular };
+        let font = if bold {
+            &self.fonts.bold
+        } else {
+            &self.fonts.regular
+        };
         self.layer.use_text(sanitize(s), size, Mm(x), Mm(y), font);
     }
 
@@ -55,14 +59,18 @@ impl Pen<'_> {
 
     fn rect(&self, x1: f32, y1: f32, x2: f32, y2: f32, color: (u8, u8, u8)) {
         self.layer.set_fill_color(rgb(color));
-        self.layer.add_rect(Rect::new(Mm(x1), Mm(y1), Mm(x2), Mm(y2)));
+        self.layer
+            .add_rect(Rect::new(Mm(x1), Mm(y1), Mm(x2), Mm(y2)));
     }
 
     fn hline(&self, x1: f32, x2: f32, y: f32, color: (u8, u8, u8), thickness: f32) {
         self.layer.set_outline_color(rgb(color));
         self.layer.set_outline_thickness(thickness);
         self.layer.add_line(Line {
-            points: vec![(Point::new(Mm(x1), Mm(y)), false), (Point::new(Mm(x2), Mm(y)), false)],
+            points: vec![
+                (Point::new(Mm(x1), Mm(y)), false),
+                (Point::new(Mm(x2), Mm(y)), false),
+            ],
             is_closed: false,
         });
     }
@@ -78,11 +86,18 @@ pub fn render_invoice(inv: &InvoiceSnapshot) -> Result<Vec<u8>> {
     let title = format!("{} {}", t.settings.title, inv.invoice_no);
     let (doc, page, layer) = PdfDocument::new(&title, Mm(PAGE_W), Mm(PAGE_H), "content");
     let fonts = Fonts {
-        regular: doc.add_builtin_font(BuiltinFont::Helvetica).map_err(pdf_err)?,
-        bold: doc.add_builtin_font(BuiltinFont::HelveticaBold).map_err(pdf_err)?,
+        regular: doc
+            .add_builtin_font(BuiltinFont::Helvetica)
+            .map_err(pdf_err)?,
+        bold: doc
+            .add_builtin_font(BuiltinFont::HelveticaBold)
+            .map_err(pdf_err)?,
     };
     let mut pages = vec![doc.get_page(page).get_layer(layer)];
-    let mut pen = Pen { layer: pages[0].clone(), fonts: &fonts };
+    let mut pen = Pen {
+        layer: pages[0].clone(),
+        fonts: &fonts,
+    };
 
     // --- Header band -------------------------------------------------------
     pen.rect(0.0, PAGE_H - 6.0, PAGE_W, PAGE_H, accent);
@@ -185,7 +200,14 @@ pub fn render_invoice(inv: &InvoiceSnapshot) -> Result<Vec<u8>> {
         }
         pen.text_right(&format_quantity(item.quantity), 9.5, C_QTY, y, false, INK);
         pen.text_right(&money(item.unit_price_cents), 9.5, C_PRICE, y, false, INK);
-        pen.text_right(&money(item.line_total_cents()), 9.5, RIGHT - 2.0, y, false, INK);
+        pen.text_right(
+            &money(item.line_total_cents()),
+            9.5,
+            RIGHT - 2.0,
+            y,
+            false,
+            INK,
+        );
         y -= needed;
         pen.hline(MARGIN, RIGHT, y + 4.2, RULE, 0.5);
     }
@@ -205,10 +227,19 @@ pub fn render_invoice(inv: &InvoiceSnapshot) -> Result<Vec<u8>> {
     };
     row(&pen, "Subtotal", &money(inv.totals.subtotal_cents), &mut y);
     if inv.totals.discount_cents > 0 {
-        row(&pen, "Discount", &format!("-{}", money(inv.totals.discount_cents)), &mut y);
+        row(
+            &pen,
+            "Discount",
+            &format!("-{}", money(inv.totals.discount_cents)),
+            &mut y,
+        );
     }
     if inv.tax_rate > 0.0 || inv.totals.tax_cents != 0 {
-        let label = format!("{} ({}%)", t.settings.tax_label, format_percent(inv.tax_rate));
+        let label = format!(
+            "{} ({}%)",
+            t.settings.tax_label,
+            format_percent(inv.tax_rate)
+        );
         row(&pen, &label, &money(inv.totals.tax_cents), &mut y);
     }
     y -= 1.5;
@@ -217,7 +248,11 @@ pub fn render_invoice(inv: &InvoiceSnapshot) -> Result<Vec<u8>> {
     let total_label = if t.settings.currency_code.trim().is_empty() {
         money(inv.totals.total_cents)
     } else {
-        format!("{} {}", money(inv.totals.total_cents), t.settings.currency_code.trim())
+        format!(
+            "{} {}",
+            money(inv.totals.total_cents),
+            t.settings.currency_code.trim()
+        )
     };
     pen.text_right(&total_label, 11.5, RIGHT - 2.0, y, true, (255, 255, 255));
     y -= 14.0;
@@ -229,8 +264,10 @@ pub fn render_invoice(inv: &InvoiceSnapshot) -> Result<Vec<u8>> {
         ("TERMS", t.footer.terms.as_str()),
     ];
     for (heading, body) in blocks.iter().filter(|(_, b)| !b.trim().is_empty()) {
-        let lines: Vec<String> =
-            body.lines().flat_map(|l| wrap(l, 9.0, PAGE_W - 2.0 * MARGIN, false)).collect();
+        let lines: Vec<String> = body
+            .lines()
+            .flat_map(|l| wrap(l, 9.0, PAGE_W - 2.0 * MARGIN, false))
+            .collect();
         let needed = 6.0 + lines.len() as f32 * 4.4;
         if y - needed < TABLE_BOTTOM {
             pen = new_page(&doc, &fonts, &mut pages);
@@ -248,13 +285,30 @@ pub fn render_invoice(inv: &InvoiceSnapshot) -> Result<Vec<u8>> {
     // --- Footer on every page ---------------------------------------------
     let n = pages.len();
     for (i, layer) in pages.iter().enumerate() {
-        let pen = Pen { layer: layer.clone(), fonts: &fonts };
+        let pen = Pen {
+            layer: layer.clone(),
+            fonts: &fonts,
+        };
         pen.hline(MARGIN, RIGHT, 18.0, RULE, 0.5);
         if !t.footer.notes.trim().is_empty() {
             pen.text_center(&t.footer.notes, 9.0, PAGE_W / 2.0, 12.5, true, accent);
         }
-        pen.text(&format!("{} {}", inv.invoice_no, version_tag(inv)), 7.5, MARGIN, 7.0, false, MUTED);
-        pen.text_right(&format!("Page {} of {n}", i + 1), 7.5, RIGHT, 7.0, false, MUTED);
+        pen.text(
+            &format!("{} {}", inv.invoice_no, version_tag(inv)),
+            7.5,
+            MARGIN,
+            7.0,
+            false,
+            MUTED,
+        );
+        pen.text_right(
+            &format!("Page {} of {n}", i + 1),
+            7.5,
+            RIGHT,
+            7.0,
+            false,
+            MUTED,
+        );
     }
 
     doc.save_to_bytes().map_err(pdf_err)
@@ -280,7 +334,12 @@ fn pdf_err(e: impl std::fmt::Display) -> CoreError {
 }
 
 fn rgb((r, g, b): (u8, u8, u8)) -> Color {
-    Color::Rgb(Rgb::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, None))
+    Color::Rgb(Rgb::new(
+        r as f32 / 255.0,
+        g as f32 / 255.0,
+        b as f32 / 255.0,
+        None,
+    ))
 }
 
 fn mix(a: (u8, u8, u8), b: (u8, u8, u8), t: f32) -> (u8, u8, u8) {
@@ -337,7 +396,11 @@ fn wrap(text: &str, size: f32, max_w: f32, bold: bool) -> Vec<String> {
     let mut lines = Vec::new();
     let mut current = String::new();
     for word in text.split_whitespace() {
-        let candidate = if current.is_empty() { word.to_string() } else { format!("{current} {word}") };
+        let candidate = if current.is_empty() {
+            word.to_string()
+        } else {
+            format!("{current} {word}")
+        };
         if text_width(&candidate, size, bold) <= max_w {
             current = candidate;
             continue;
@@ -369,7 +432,14 @@ mod tests {
 
     #[test]
     fn wraps_long_text() {
-        let lines = wrap("the quick brown fox jumps over the lazy dog ".repeat(5).as_str(), 10.0, 50.0, false);
+        let lines = wrap(
+            "the quick brown fox jumps over the lazy dog "
+                .repeat(5)
+                .as_str(),
+            10.0,
+            50.0,
+            false,
+        );
         assert!(lines.len() > 3);
         assert!(lines.iter().all(|l| text_width(l, 10.0, false) <= 50.0));
     }

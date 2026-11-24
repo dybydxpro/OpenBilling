@@ -39,13 +39,19 @@ impl App {
         let db_path = data_dir.join(DB_FILE);
         let conn = db::open(&db_path)?;
         templates::default_id(&conn)?;
-        Ok(Self { conn, db_path: Some(db_path) })
+        Ok(Self {
+            conn,
+            db_path: Some(db_path),
+        })
     }
 
     pub fn open_in_memory() -> Result<Self> {
         let conn = db::open_in_memory()?;
         templates::default_id(&conn)?;
-        Ok(Self { conn, db_path: None })
+        Ok(Self {
+            conn,
+            db_path: None,
+        })
     }
 
     pub fn conn(&self) -> &Connection {

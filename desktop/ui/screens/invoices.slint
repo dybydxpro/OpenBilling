@@ -39,16 +39,7 @@ component InvoiceRowView inherits Rectangle {
             HorizontalLayout {
                 spacing: 8px;
                 Text { text: root.data.invoice-no; font-weight: 700; color: Theme.text; }
-                VerticalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: vt.preferred-width + 12px;
-                        height: 18px;
-                        border-radius: 9px;
-                        background: Theme.neutral-soft;
-                        vt := Text { text: "v" + root.data.version; font-size: Theme.font-xs; font-weight: 700; color: Theme.text-muted; }
-                    }
-                }
+                Text { text: "v" + root.data.version; font-size: Theme.font-sm; font-weight: 600; color: Theme.text-subtle; }
             }
             Text {
                 text: root.data.customer + " · " + root.data.order-no;
@@ -71,7 +62,7 @@ component InvoiceRowView inherits Rectangle {
         }
         Text {
             text: root.data.total;
-            min-width: 90px;
+            width: 120px;
             font-weight: 700;
             color: Theme.text;
             horizontal-alignment: right;

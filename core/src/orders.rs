@@ -295,7 +295,10 @@ pub fn get(conn: &Connection, id: i64) -> Result<Order> {
                     notes: r.get(7)?,
                     tax_rate: r.get(9)?,
                     items: Vec::new(),
-                    totals: Totals { discount_cents: discount, ..Default::default() },
+                    totals: Totals {
+                        discount_cents: discount,
+                        ..Default::default()
+                    },
                     created_at: r.get(10)?,
                     updated_at: r.get(11)?,
                     invoice_id: r.get(12)?,
@@ -311,7 +314,11 @@ pub fn get(conn: &Connection, id: i64) -> Result<Order> {
     )?;
     order.items = stmt
         .query_map([id], |r| {
-            Ok(OrderItem { description: r.get(0)?, quantity: r.get(1)?, unit_price_cents: r.get(2)? })
+            Ok(OrderItem {
+                description: r.get(0)?,
+                quantity: r.get(1)?,
+                unit_price_cents: r.get(2)?,
+            })
         })?
         .collect::<rusqlite::Result<_>>()?;
     order.totals = compute_totals(&order.items, order.totals.discount_cents, order.tax_rate);
@@ -431,9 +438,16 @@ fn write_items(conn: &Connection, order_id: i64, items: &[OrderItem]) -> Result<
 }
 
 fn ensure_customer(conn: &Connection, id: i64) -> Result<()> {
-    let exists: bool =
-        conn.query_row("SELECT EXISTS(SELECT 1 FROM customers WHERE id = ?1)", [id], |r| r.get(0))?;
-    if exists { Ok(()) } else { invalid("Choose a customer for this order.") }
+    let exists: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM customers WHERE id = ?1)",
+        [id],
+        |r| r.get(0),
+    )?;
+    if exists {
+        Ok(())
+    } else {
+        invalid("Choose a customer for this order.")
+    }
 }
 
 /// Allocates the next number of a sequence, e.g. `ORD-0007`.
@@ -453,8 +467,16 @@ mod tests {
     #[test]
     fn totals_apply_discount_before_tax() {
         let items = vec![
-            OrderItem { description: "A".into(), quantity: 2.0, unit_price_cents: 1000 },
-            OrderItem { description: "B".into(), quantity: 0.5, unit_price_cents: 333 },
+            OrderItem {
+                description: "A".into(),
+                quantity: 2.0,
+                unit_price_cents: 1000,
+            },
+            OrderItem {
+                description: "B".into(),
+                quantity: 0.5,
+                unit_price_cents: 333,
+            },
         ];
         let t = compute_totals(&items, 500, 10.0);
         assert_eq!(t.subtotal_cents, 2167);

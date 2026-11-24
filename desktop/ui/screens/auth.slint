@@ -311,7 +311,7 @@ export component AuthScreen inherits Rectangle {
                             }
                         }
 
-                        ErrorBanner { text: AuthState.error; }
+                        if AuthState.error != "": ErrorBanner { text: AuthState.error; }
 
                         if root.pin-mode: PinPad { }
 

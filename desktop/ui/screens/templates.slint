@@ -182,7 +182,7 @@ component InvoicePreview inherits Rectangle {
                     width: 110px;
                     height: 20px;
                     background: TemplateForm.accent-preview;
-                    Text { text: "TOTAL  " + TemplateForm.currency-symbol + "0.00"; font-size: 9px; font-weight: 700; color: white; }
+                    Text { text: "TOTAL  " + TemplateForm.currency-symbol + " 0.00"; font-size: 9px; font-weight: 700; color: white; }
                 }
             }
             Text {
@@ -324,7 +324,7 @@ export component TemplateEditPage inherits PageScroll {
         }
     }
 
-    ErrorBanner { text: TemplateForm.error; }
+    if TemplateForm.error != "": ErrorBanner { text: TemplateForm.error; }
 
     HorizontalLayout {
         spacing: 8px;

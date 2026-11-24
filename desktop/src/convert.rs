@@ -14,7 +14,9 @@ pub fn model<T: Clone + 'static>(items: Vec<T>) -> ModelRc<T> {
     ModelRc::new(VecModel::from(items))
 }
 
-pub fn strings<I: IntoIterator<Item = S>, S: Into<SharedString>>(items: I) -> ModelRc<SharedString> {
+pub fn strings<I: IntoIterator<Item = S>, S: Into<SharedString>>(
+    items: I,
+) -> ModelRc<SharedString> {
     model(items.into_iter().map(Into::into).collect())
 }
 
@@ -43,7 +45,11 @@ pub fn initials(name: &str) -> String {
     let mut words = name.split_whitespace().filter_map(|w| w.chars().next());
     let first = words.next();
     let second = words.next();
-    [first, second].into_iter().flatten().flat_map(char::to_uppercase).collect()
+    [first, second]
+        .into_iter()
+        .flatten()
+        .flat_map(char::to_uppercase)
+        .collect()
 }
 
 pub fn customer_row(c: &Customer, symbol: &str) -> CustomerRow {
@@ -70,8 +76,15 @@ pub fn template_row(t: &TemplateRecord) -> TemplateRow {
         name: t.template.name.as_str().into(),
         business: t.template.business.name.as_str().into(),
         prefix: s.invoice_prefix.as_str().into(),
-        currency: format!("{} {}", s.currency_symbol, s.currency_code).trim().into(),
-        tax: format!("{} {}%", s.tax_label, app_core::money::format_percent(s.default_tax_rate)).into(),
+        currency: format!("{} {}", s.currency_symbol, s.currency_code)
+            .trim()
+            .into(),
+        tax: format!(
+            "{} {}%",
+            s.tax_label,
+            app_core::money::format_percent(s.default_tax_rate)
+        )
+        .into(),
         accent: hex_color(&s.accent_color).unwrap_or(Color::from_rgb_u8(79, 70, 229)),
         is_default: t.is_default,
         updated: t.updated_at.get(..10).unwrap_or(&t.updated_at).into(),

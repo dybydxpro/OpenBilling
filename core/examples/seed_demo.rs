@@ -12,7 +12,9 @@ use app_core::{App, auth, invoices, templates};
 use chrono::{Duration, Local};
 
 fn main() -> app_core::Result<()> {
-    let dir = std::env::args().nth(1).expect("usage: seed_demo <data-dir>");
+    let dir = std::env::args()
+        .nth(1)
+        .expect("usage: seed_demo <data-dir>");
     let app = App::open(std::path::Path::new(&dir))?;
     let c = app.conn();
     if !auth::is_initialized(c)? {
@@ -41,7 +43,15 @@ fn main() -> app_core::Result<()> {
     let ids: Vec<i64> = names
         .iter()
         .map(|(n, e)| {
-            customers::create(c, &CustomerInput { name: (*n).into(), email: (*e).into(), phone: "+94 77 000 0000".into(), address: "Colombo".into() })
+            customers::create(
+                c,
+                &CustomerInput {
+                    name: (*n).into(),
+                    email: (*e).into(),
+                    phone: "+94 77 000 0000".into(),
+                    address: "Colombo".into(),
+                },
+            )
         })
         .collect::<Result<_, _>>()?;
 
@@ -58,7 +68,11 @@ fn main() -> app_core::Result<()> {
         let items: Vec<OrderItem> = (0..(1 + n % 3))
             .map(|k| {
                 let (d, p) = products[((n + k) % 5) as usize];
-                OrderItem { description: d.into(), quantity: (1 + (n + k) % 4) as f64, unit_price_cents: p }
+                OrderItem {
+                    description: d.into(),
+                    quantity: (1 + (n + k) % 4) as f64,
+                    unit_price_cents: p,
+                }
             })
             .collect();
         let status = match n % 7 {
@@ -67,17 +81,20 @@ fn main() -> app_core::Result<()> {
             6 => OrderStatus::Cancelled,
             _ => OrderStatus::Paid,
         };
-        let id = orders::create(c, &OrderInput {
-            customer_id: ids[(n % 5) as usize],
-            template_id: None,
-            status: OrderStatus::Draft,
-            order_date: date.format("%Y-%m-%d").to_string(),
-            due_date: (date + Duration::days(14)).format("%Y-%m-%d").to_string(),
-            notes: String::new(),
-            discount_cents: if n % 4 == 0 { 50000 } else { 0 },
-            tax_rate: 18.0,
-            items,
-        })?;
+        let id = orders::create(
+            c,
+            &OrderInput {
+                customer_id: ids[(n % 5) as usize],
+                template_id: None,
+                status: OrderStatus::Draft,
+                order_date: date.format("%Y-%m-%d").to_string(),
+                due_date: (date + Duration::days(14)).format("%Y-%m-%d").to_string(),
+                notes: String::new(),
+                discount_cents: if n % 4 == 0 { 50000 } else { 0 },
+                tax_rate: 18.0,
+                items,
+            },
+        )?;
         if status != OrderStatus::Draft && status != OrderStatus::Cancelled {
             invoices::generate(c, id, "")?;
         }

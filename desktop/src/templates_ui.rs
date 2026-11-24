@@ -18,30 +18,39 @@ pub fn init(ctx: &Rc<Ctx>) {
 
     let c = ctx.clone();
     api.on_new_template(move || {
-        let t = InvoiceTemplate { name: "New template".into(), ..Default::default() };
+        let t = InvoiceTemplate {
+            name: "New template".into(),
+            ..Default::default()
+        };
         open_editor(&c, 0, &t);
     });
     let c = ctx.clone();
-    api.on_edit_template(move |id| match c.with_conn(|conn| templates::get(conn, id as i64)) {
-        Ok(rec) => open_editor(&c, rec.id, &rec.template),
-        Err(e) => c.fail(&e),
+    api.on_edit_template(
+        move |id| match c.with_conn(|conn| templates::get(conn, id as i64)) {
+            Ok(rec) => open_editor(&c, rec.id, &rec.template),
+            Err(e) => c.fail(&e),
+        },
+    );
+    let c = ctx.clone();
+    api.on_duplicate_template(move |id| {
+        match c.with_conn(|conn| templates::duplicate(conn, id as i64)) {
+            Ok(_) => {
+                c.success("Template duplicated");
+                refresh(&c);
+            }
+            Err(e) => c.fail(&e),
+        }
     });
     let c = ctx.clone();
-    api.on_duplicate_template(move |id| match c.with_conn(|conn| templates::duplicate(conn, id as i64)) {
-        Ok(_) => {
-            c.success("Template duplicated");
-            refresh(&c);
+    api.on_default_template(move |id| {
+        match c.with_conn(|conn| templates::set_default(conn, id as i64)) {
+            Ok(()) => {
+                c.success("Default template updated");
+                nav::refresh_business_name(&c);
+                refresh(&c);
+            }
+            Err(e) => c.fail(&e),
         }
-        Err(e) => c.fail(&e),
-    });
-    let c = ctx.clone();
-    api.on_default_template(move |id| match c.with_conn(|conn| templates::set_default(conn, id as i64)) {
-        Ok(()) => {
-            c.success("Default template updated");
-            nav::refresh_business_name(&c);
-            refresh(&c);
-        }
-        Err(e) => c.fail(&e),
     });
     let c = ctx.clone();
     api.on_delete_template(move |id| {
@@ -62,10 +71,12 @@ pub fn init(ctx: &Rc<Ctx>) {
     let c = ctx.clone();
     api.on_import_template(move || import(&c));
     let c = ctx.clone();
-    api.on_export_template(move |id| match c.with_conn(|conn| templates::get(conn, id as i64)) {
-        Ok(rec) => export(&c, &rec.template.name, &rec.xml),
-        Err(e) => c.fail(&e),
-    });
+    api.on_export_template(
+        move |id| match c.with_conn(|conn| templates::get(conn, id as i64)) {
+            Ok(rec) => export(&c, &rec.template.name, &rec.xml),
+            Err(e) => c.fail(&e),
+        },
+    );
 
     let c = ctx.clone();
     api.on_template_tab(move |tab| switch_tab(&c, tab.as_str()));
@@ -84,7 +95,10 @@ pub fn init(ctx: &Rc<Ctx>) {
     let c = ctx.clone();
     api.on_template_export_current(move || match current_xml(&c) {
         Ok((t, xml)) => export(&c, &t.name, &xml),
-        Err(e) => c.ui().global::<TemplateForm>().set_error(e.to_string().into()),
+        Err(e) => c
+            .ui()
+            .global::<TemplateForm>()
+            .set_error(e.to_string().into()),
     });
 }
 
@@ -186,7 +200,6 @@ fn open_editor(ctx: &Rc<Ctx>, id: i64, t: &InvoiceTemplate) {
     f.set_error(SharedString::new());
     f.set_xml(t.to_xml().unwrap_or_default().into());
     fill_form(&f, t);
-    f.set_generation(f.get_generation() + 1);
     ui.global::<AppState>().set_page("template-edit".into());
 }
 
@@ -217,7 +230,13 @@ fn save(ctx: &Rc<Ctx>) {
     let f = ui_.global::<TemplateForm>();
     let id = f.get_id() as i64;
     let result = current_xml(ctx).and_then(|(_, xml)| {
-        ctx.with_conn(|c| if id == 0 { templates::create(c, &xml).map(|_| ()) } else { templates::update(c, id, &xml) })
+        ctx.with_conn(|c| {
+            if id == 0 {
+                templates::create(c, &xml).map(|_| ())
+            } else {
+                templates::update(c, id, &xml)
+            }
+        })
     });
     match result {
         Ok(()) => {
@@ -231,7 +250,13 @@ fn save(ctx: &Rc<Ctx>) {
 fn safe_file_stem(name: &str) -> String {
     let s: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect();
     let s = s.trim_matches('-').to_string();
     if s.is_empty() { "template".into() } else { s }
@@ -239,7 +264,9 @@ fn safe_file_stem(name: &str) -> String {
 
 fn export(ctx: &Ctx, name: &str, xml: &str) {
     let file = format!("{}.xml", safe_file_stem(name));
-    let Some(path) = files::save_dialog("Export template", &file, XML_FILTER) else { return };
+    let Some(path) = files::save_dialog("Export template", &file, XML_FILTER) else {
+        return;
+    };
     match std::fs::write(&path, xml) {
         Ok(()) => ctx.success(format!("Exported {}", files::display_name(&path))),
         Err(e) => ctx.toast("error", format!("Couldn't save the file: {e}")),
@@ -247,7 +274,9 @@ fn export(ctx: &Ctx, name: &str, xml: &str) {
 }
 
 fn import(ctx: &Rc<Ctx>) {
-    let Some(path) = files::open_dialog("Import template", XML_FILTER) else { return };
+    let Some(path) = files::open_dialog("Import template", XML_FILTER) else {
+        return;
+    };
     let xml = match std::fs::read_to_string(&path) {
         Ok(x) => x,
         Err(e) => return ctx.toast("error", format!("Couldn't read the file: {e}")),
@@ -265,7 +294,10 @@ fn import(ctx: &Rc<Ctx>) {
 mod tests {
     #[test]
     fn file_stems() {
-        assert_eq!(super::safe_file_stem("Retail / Wholesale"), "Retail---Wholesale");
+        assert_eq!(
+            super::safe_file_stem("Retail / Wholesale"),
+            "Retail---Wholesale"
+        );
         assert_eq!(super::safe_file_stem("///"), "template");
     }
 }

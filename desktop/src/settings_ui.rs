@@ -45,7 +45,10 @@ pub fn refresh(ctx: &Rc<Ctx>) {
         ))
     });
     s.set_stats(stats.unwrap_or_default().into());
-    let last = ctx.with_conn(|c| get_setting(c, LAST_BACKUP_KEY)).ok().flatten();
+    let last = ctx
+        .with_conn(|c| get_setting(c, LAST_BACKUP_KEY))
+        .ok()
+        .flatten();
     s.set_last_backup(last.unwrap_or_else(|| "Never".into()).into());
 }
 
@@ -67,10 +70,15 @@ pub fn clear_sensitive(ctx: &Ctx) {
 }
 
 fn create_backup(ctx: &Rc<Ctx>) {
-    let name = format!("OpenBilling-backup-{}.{FILE_EXTENSION}", Local::now().format("%Y-%m-%d"));
-    let Some(path) =
-        files::save_dialog("Save backup", &name, ("OpenBilling backup", &[FILE_EXTENSION]))
-    else {
+    let name = format!(
+        "OpenBilling-backup-{}.{FILE_EXTENSION}",
+        Local::now().format("%Y-%m-%d")
+    );
+    let Some(path) = files::save_dialog(
+        "Save backup",
+        &name,
+        ("OpenBilling backup", &[FILE_EXTENSION]),
+    ) else {
         return;
     };
     match ctx.with_conn(|c| backup::create_backup(c, &path)) {
@@ -100,16 +108,22 @@ fn restore_backup(ctx: &Rc<Ctx>) {
         "Backup from {} with {} customers, {} orders and {} invoices.\n\nAll current data will be replaced, including your PIN and recovery key. You'll sign in with the PIN that was active when this backup was made.",
         manifest.created_at, manifest.customers, manifest.orders, manifest.invoices
     );
-    ctx.confirm("Restore this backup?", &message, "Replace my data", true, move |c| {
-        let result = c.app.borrow_mut().restore_backup(&path);
-        match result {
-            Ok(_) => {
-                auth_ui::lock(c);
-                c.success("Backup restored. Sign in with the backup's PIN.");
+    ctx.confirm(
+        "Restore this backup?",
+        &message,
+        "Replace my data",
+        true,
+        move |c| {
+            let result = c.app.borrow_mut().restore_backup(&path);
+            match result {
+                Ok(_) => {
+                    auth_ui::lock(c);
+                    c.success("Backup restored. Sign in with the backup's PIN.");
+                }
+                Err(e) => c.fail(&e),
             }
-            Err(e) => c.fail(&e),
-        }
-    });
+        },
+    );
 }
 
 fn change_pin(ctx: &Rc<Ctx>) {

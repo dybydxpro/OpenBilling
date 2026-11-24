@@ -55,10 +55,34 @@ fn open_dialog(ctx: &Rc<Ctx>, id: Option<i64>, from_order: bool) {
     };
     s.set_edit_id(id.unwrap_or(0) as i32);
     s.set_from_order(from_order);
-    s.set_name(existing.as_ref().map(|c| c.name.clone()).unwrap_or_default().into());
-    s.set_email(existing.as_ref().map(|c| c.email.clone()).unwrap_or_default().into());
-    s.set_phone(existing.as_ref().map(|c| c.phone.clone()).unwrap_or_default().into());
-    s.set_address(existing.as_ref().map(|c| c.address.clone()).unwrap_or_default().into());
+    s.set_name(
+        existing
+            .as_ref()
+            .map(|c| c.name.clone())
+            .unwrap_or_default()
+            .into(),
+    );
+    s.set_email(
+        existing
+            .as_ref()
+            .map(|c| c.email.clone())
+            .unwrap_or_default()
+            .into(),
+    );
+    s.set_phone(
+        existing
+            .as_ref()
+            .map(|c| c.phone.clone())
+            .unwrap_or_default()
+            .into(),
+    );
+    s.set_address(
+        existing
+            .as_ref()
+            .map(|c| c.address.clone())
+            .unwrap_or_default()
+            .into(),
+    );
     s.set_error(SharedString::new());
     s.set_dialog_visible(true);
 }
@@ -83,7 +107,11 @@ fn save(ctx: &Rc<Ctx>) {
     match result {
         Ok(id) => {
             s.set_dialog_visible(false);
-            ctx.success(if edit_id == 0 { "Customer added" } else { "Customer updated" });
+            ctx.success(if edit_id == 0 {
+                "Customer added"
+            } else {
+                "Customer updated"
+            });
             if s.get_from_order() {
                 orders_ui::load_customer_choices(ctx, Some(id));
             } else {
@@ -95,7 +123,10 @@ fn save(ctx: &Rc<Ctx>) {
 }
 
 fn delete(ctx: &Rc<Ctx>, id: i64) {
-    let name = ctx.with_conn(|c| customers::get(c, id)).map(|c| c.name).unwrap_or_default();
+    let name = ctx
+        .with_conn(|c| customers::get(c, id))
+        .map(|c| c.name)
+        .unwrap_or_default();
     ctx.confirm(
         &format!("Delete {name}?"),
         "The customer will be removed permanently. Customers with orders can't be deleted.",

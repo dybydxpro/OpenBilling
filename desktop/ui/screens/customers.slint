@@ -48,7 +48,7 @@ component CustomerRowView inherits Rectangle {
         }
         Text {
             text: root.data.billed;
-            min-width: 90px;
+            width: 120px;
             font-weight: 700;
             color: Theme.text;
             horizontal-alignment: right;
@@ -124,7 +124,7 @@ export component CustomerDialog inherits Modal {
     title: CustomersState.edit-id == 0 ? "New customer" : "Edit customer";
     close => { Api.customer-cancel(); }
 
-    ErrorBanner { text: CustomersState.error; }
+    if CustomersState.error != "": ErrorBanner { text: CustomersState.error; }
     name-field := Field {
         label: "Name *";
         placeholder: "Customer or company name";
