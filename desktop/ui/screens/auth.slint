@@ -1,0 +1,372 @@
+import { CheckBox, LineEdit, Spinner } from "std-widgets.slint";
+import { Theme, Icons } from "../theme.slint";
+import { AuthState, Api } from "../globals.slint";
+import { Btn, Icon, ErrorBanner, InfoBanner } from "../components/widgets.slint";
+import { PinSlot } from "../components/PinSlot.slint";
+import { KeypadBtn } from "../components/KeypadBtn.slint";
+
+component PinPad inherits VerticalLayout {
+    spacing: 18px;
+
+    fs := FocusScope {
+        init => { self.focus(); }
+        key-pressed(e) => {
+            if e.text == Key.Backspace { Api.pin-key("back"); return accept; }
+            if e.text == Key.Escape { Api.pin-key("clear"); return accept; }
+            Api.pin-key(e.text);
+            accept
+        }
+
+        VerticalLayout {
+            spacing: 18px;
+
+            HorizontalLayout {
+                alignment: center;
+                spacing: 10px;
+                for i in 6: PinSlot {
+                    state: i < AuthState.pin-len ? (AuthState.show-pin ? 2 : 1) : (i == AuthState.pin-len ? 3 : 0);
+                    digit: AuthState.pin-digits[i];
+                    error: AuthState.error != "" && AuthState.pin-len == 0;
+                }
+            }
+
+            HorizontalLayout {
+                alignment: center;
+                show := TouchArea {
+                    mouse-cursor: pointer;
+                    width: show-row.preferred-width;
+                    clicked => {
+                        AuthState.show-pin = !AuthState.show-pin;
+                        fs.focus();
+                    }
+                    show-row := HorizontalLayout {
+                        spacing: 6px;
+                        VerticalLayout {
+                            alignment: center;
+                            Icon {
+                                source: AuthState.show-pin ? Icons.eye-off : Icons.eye;
+                                colorize: Theme.text-muted;
+                                size: 16px;
+                            }
+                        }
+                        Text {
+                            text: AuthState.show-pin ? "Hide PIN" : "Show PIN";
+                            color: show.has-hover ? Theme.primary : Theme.text-muted;
+                            font-size: Theme.font-sm;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            GridLayout {
+                spacing: 10px;
+                Row {
+                    KeypadBtn { text: "1"; enabled: !AuthState.busy; clicked => { Api.pin-key("1"); fs.focus(); } }
+                    KeypadBtn { text: "2"; enabled: !AuthState.busy; clicked => { Api.pin-key("2"); fs.focus(); } }
+                    KeypadBtn { text: "3"; enabled: !AuthState.busy; clicked => { Api.pin-key("3"); fs.focus(); } }
+                }
+                Row {
+                    KeypadBtn { text: "4"; enabled: !AuthState.busy; clicked => { Api.pin-key("4"); fs.focus(); } }
+                    KeypadBtn { text: "5"; enabled: !AuthState.busy; clicked => { Api.pin-key("5"); fs.focus(); } }
+                    KeypadBtn { text: "6"; enabled: !AuthState.busy; clicked => { Api.pin-key("6"); fs.focus(); } }
+                }
+                Row {
+                    KeypadBtn { text: "7"; enabled: !AuthState.busy; clicked => { Api.pin-key("7"); fs.focus(); } }
+                    KeypadBtn { text: "8"; enabled: !AuthState.busy; clicked => { Api.pin-key("8"); fs.focus(); } }
+                    KeypadBtn { text: "9"; enabled: !AuthState.busy; clicked => { Api.pin-key("9"); fs.focus(); } }
+                }
+                Row {
+                    Rectangle { }
+                    KeypadBtn { text: "0"; enabled: !AuthState.busy; clicked => { Api.pin-key("0"); fs.focus(); } }
+                    KeypadBtn {
+                        icon: Icons.backspace;
+                        subtle: true;
+                        enabled: !AuthState.busy;
+                        clicked => { Api.pin-key("back"); fs.focus(); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+component RecoveryKeyView inherits VerticalLayout {
+    spacing: 16px;
+
+    Rectangle {
+        background: Theme.surface-alt;
+        border-radius: Theme.radius;
+        border-width: 1px;
+        border-color: Theme.border;
+        VerticalLayout {
+            padding: 18px;
+            spacing: 12px;
+            Text {
+                text: AuthState.recovery-key;
+                font-family: "Consolas";
+                font-size: Theme.compact ? 15px : 18px;
+                font-weight: 700;
+                letter-spacing: 1px;
+                color: Theme.text;
+                horizontal-alignment: center;
+                wrap: word-wrap;
+            }
+            HorizontalLayout {
+                alignment: center;
+                Btn {
+                    kind: "secondary";
+                    small: true;
+                    icon: Icons.copy;
+                    text: "Copy key";
+                    clicked => { Api.copy-text(AuthState.recovery-key); }
+                }
+            }
+        }
+    }
+
+    InfoBanner {
+        tone: "warn";
+        text: "Write this key down or store it in a password manager. It is the only way to reset your PIN, and it is shown only once. Each time it is used, a new key is issued.";
+    }
+
+    CheckBox {
+        text: "I have saved my recovery key somewhere safe";
+        checked <=> AuthState.key-saved;
+    }
+
+    Btn {
+        text: "Continue to OpenBilling";
+        enabled: AuthState.key-saved;
+        clicked => { Api.auth-continue(); }
+    }
+}
+
+component LinkText inherits TouchArea {
+    in property <string> text;
+    mouse-cursor: pointer;
+    width: t.preferred-width;
+    height: t.preferred-height + 8px;
+    t := Text {
+        text: root.text;
+        color: root.has-hover ? Theme.primary-hover : Theme.primary;
+        font-size: Theme.font-md;
+        font-weight: 600;
+    }
+}
+
+export component AuthScreen inherits Rectangle {
+    background: Theme.bg;
+
+    property <string> mode: AuthState.mode;
+    property <bool> pin-mode: mode == "setup-pin" || mode == "setup-confirm" || mode == "login" || mode == "reset-pin" || mode == "reset-confirm";
+    property <bool> wide: root.width >= 900px;
+
+    property <string> title: {
+        if mode == "setup-pin" { return "Create your PIN"; }
+        if mode == "setup-confirm" { return "Confirm your PIN"; }
+        if mode == "setup-key" { return "Save your recovery key"; }
+        if mode == "reset-key" { return "Reset your PIN"; }
+        if mode == "reset-pin" { return "Choose a new PIN"; }
+        if mode == "reset-confirm" { return "Confirm your new PIN"; }
+        if mode == "reset-done" { return "PIN changed"; }
+        return "Welcome back";
+    };
+    property <string> subtitle: {
+        if mode == "setup-pin" { return "Choose a 6-digit PIN. You'll enter it each time you open OpenBilling on this device."; }
+        if mode == "setup-confirm" { return "Enter the same 6 digits again."; }
+        if mode == "setup-key" { return "If you ever forget your PIN, this key lets you set a new one."; }
+        if mode == "reset-key" { return "Enter the recovery key you saved when you set up OpenBilling."; }
+        if mode == "reset-pin" { return "Recovery key accepted. Pick a new 6-digit PIN."; }
+        if mode == "reset-confirm" { return "Enter the same 6 digits again."; }
+        if mode == "reset-done" { return "Your old recovery key no longer works. Save this new one."; }
+        return "Enter your PIN to unlock your business data.";
+    };
+
+    HorizontalLayout {
+        // Brand panel (wide screens only)
+        if root.wide: Rectangle {
+            width: 42%;
+            background: @linear-gradient(150deg, #312e81 0%, #4f46e5 60%, #6366f1 100%);
+            VerticalLayout {
+                padding: 48px;
+                spacing: 18px;
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 12px;
+                    alignment: start;
+                    Rectangle {
+                        width: 44px;
+                        height: 44px;
+                        border-radius: 12px;
+                        background: #ffffff26;
+                        Icon {
+                            source: Icons.invoice;
+                            colorize: white;
+                            size: 24px;
+                        }
+                    }
+                    Text {
+                        text: "OpenBilling";
+                        color: white;
+                        font-size: 24px;
+                        font-weight: 700;
+                        vertical-alignment: center;
+                    }
+                }
+                Text {
+                    text: "Orders, invoices and reports for growing businesses.";
+                    color: white;
+                    font-size: 30px;
+                    font-weight: 700;
+                    wrap: word-wrap;
+                }
+                Text {
+                    text: "Everything stays on this device, protected by your PIN.";
+                    color: #e0e7ff;
+                    font-size: Theme.font-lg;
+                    wrap: word-wrap;
+                }
+                VerticalLayout {
+                    spacing: 10px;
+                    padding-top: 12px;
+                    for feature in ["Create orders and professional PDF invoices", "Keep every invoice revision", "Track sales, payments and overdue bills", "Back up and restore in one click"]: HorizontalLayout {
+                        spacing: 10px;
+                        VerticalLayout {
+                            alignment: center;
+                            Rectangle {
+                                width: 22px;
+                                height: 22px;
+                                border-radius: 11px;
+                                background: #ffffff26;
+                                Icon {
+                                    source: Icons.check;
+                                    colorize: white;
+                                    size: 13px;
+                                }
+                            }
+                        }
+                        Text {
+                            text: feature;
+                            color: white;
+                            font-size: Theme.font-md;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Flow panel
+        Rectangle {
+            Flickable {
+                content-height: max(self.height, card.preferred-height + 48px);
+                card := Rectangle {
+                    width: min(parent.width - 32px, 440px);
+                    height: self.preferred-height;
+                    x: (parent.width - self.width) / 2;
+                    y: max(24px, (parent.height - self.height) / 2);
+                    background: Theme.surface;
+                    border-radius: Theme.radius-lg;
+                    border-width: 1px;
+                    border-color: Theme.border;
+                    drop-shadow-blur: 24px;
+                    drop-shadow-color: #0f172a14;
+                    drop-shadow-offset-y: 6px;
+
+                    VerticalLayout {
+                        padding: Theme.compact ? 22px : 32px;
+                        spacing: 20px;
+
+                        // Header
+                        VerticalLayout {
+                            spacing: 10px;
+                            HorizontalLayout {
+                                alignment: center;
+                                Rectangle {
+                                    width: 56px;
+                                    height: 56px;
+                                    border-radius: 28px;
+                                    background: Theme.primary-soft;
+                                    Icon {
+                                        source: mode == "setup-key" || mode == "reset-done" || mode == "reset-key" ? Icons.key : Icons.shield;
+                                        colorize: Theme.primary;
+                                        size: 28px;
+                                    }
+                                }
+                            }
+                            Text {
+                                text: root.title;
+                                font-size: Theme.font-xl + 2px;
+                                font-weight: 700;
+                                color: Theme.text;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: root.subtitle;
+                                font-size: Theme.font-md;
+                                color: Theme.text-muted;
+                                horizontal-alignment: center;
+                                wrap: word-wrap;
+                            }
+                        }
+
+                        ErrorBanner { text: AuthState.error; }
+
+                        if root.pin-mode: PinPad { }
+
+                        if AuthState.busy: HorizontalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Spinner {
+                                width: 18px;
+                                height: 18px;
+                                indeterminate: true;
+                            }
+                            Text {
+                                text: "Checking…";
+                                color: Theme.text-muted;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        if mode == "setup-key" || mode == "reset-done": RecoveryKeyView { }
+
+                        if mode == "reset-key": VerticalLayout {
+                            spacing: 14px;
+                            key-edit := LineEdit {
+                                placeholder-text: "XXXXX-XXXXX-XXXXX-XXXXX-XXXXX";
+                                text <=> AuthState.key-input;
+                                font-size: Theme.font-lg;
+                                init => { self.focus(); }
+                                accepted => { Api.auth-continue(); }
+                            }
+                            Btn {
+                                text: "Verify recovery key";
+                                enabled: AuthState.key-input != "" && !AuthState.busy;
+                                clicked => { Api.auth-continue(); }
+                            }
+                        }
+
+                        // Footer links
+                        HorizontalLayout {
+                            alignment: center;
+                            if mode == "login": LinkText {
+                                text: "Forgot your PIN?";
+                                clicked => { Api.auth-forgot(); }
+                            }
+                            if mode == "setup-confirm" || mode == "reset-confirm": LinkText {
+                                text: "Start over";
+                                clicked => { Api.auth-back(); }
+                            }
+                            if mode == "reset-key" || mode == "reset-pin": LinkText {
+                                text: "Back to sign in";
+                                clicked => { Api.auth-back(); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

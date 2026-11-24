@@ -1,0 +1,198 @@
+import { Theme, Icons } from "../theme.slint";
+import { Api, SettingsState } from "../globals.slint";
+import {
+    Btn, Card, Field, PageHeader, PageScroll, SectionTitle, ErrorBanner, InfoBanner, Icon, Label, Divider
+} from "../components/widgets.slint";
+
+component SettingRow inherits HorizontalLayout {
+    in property <image> icon;
+    in property <string> title;
+    in property <string> body;
+    spacing: 14px;
+    VerticalLayout {
+        alignment: start;
+        Rectangle {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            background: Theme.primary-soft;
+            Icon {
+                source: root.icon;
+                colorize: Theme.primary;
+                size: 20px;
+            }
+        }
+    }
+    VerticalLayout {
+        horizontal-stretch: 1;
+        spacing: 2px;
+        alignment: center;
+        Text { text: root.title; font-weight: 700; color: Theme.text; }
+        Text { text: root.body; color: Theme.text-muted; font-size: Theme.font-sm; wrap: word-wrap; }
+    }
+    @children
+}
+
+export component SettingsPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+    max-content-width: 860px;
+
+    PageHeader {
+        title: "Backup & settings";
+        sub: "Protect your data and manage security.";
+    }
+
+    Card {
+        SectionTitle { text: "Backup & restore"; sub: "Last backup: " + SettingsState.last-backup; }
+        SettingRow {
+            icon: Icons.download;
+            title: "Create a backup";
+            body: "Saves everything — customers, orders, invoices with all versions, templates and settings — into a single .obbackup file.";
+            VerticalLayout {
+                alignment: center;
+                Btn {
+                    text: Theme.compact ? "" : "Back up now";
+                    icon: Icons.download;
+                    clicked => { Api.create-backup(); }
+                }
+            }
+        }
+        Divider { }
+        SettingRow {
+            icon: Icons.upload;
+            title: "Restore from backup";
+            body: "Replaces all current data with the backup's contents. You'll sign in again with the PIN that was active when the backup was made.";
+            VerticalLayout {
+                alignment: center;
+                Btn {
+                    text: Theme.compact ? "" : "Restore…";
+                    icon: Icons.upload;
+                    kind: "secondary";
+                    clicked => { Api.restore-backup(); }
+                }
+            }
+        }
+        InfoBanner {
+            tone: "warn";
+            text: "Backup files are not encrypted. Keep them somewhere private, such as an encrypted drive or a trusted cloud folder.";
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Change PIN"; }
+        ErrorBanner { text: SettingsState.pin-error; }
+        if !Theme.compact: HorizontalLayout {
+            spacing: 12px;
+            Field { label: "Current PIN"; input-type: password; text <=> SettingsState.current-pin; }
+            Field { label: "New PIN"; input-type: password; text <=> SettingsState.new-pin; }
+            Field { label: "Confirm new PIN"; input-type: password; text <=> SettingsState.confirm-pin; accepted => { Api.change-pin(); } }
+        }
+        if Theme.compact: VerticalLayout {
+            spacing: 12px;
+            Field { label: "Current PIN"; input-type: password; text <=> SettingsState.current-pin; }
+            Field { label: "New PIN"; input-type: password; text <=> SettingsState.new-pin; }
+            Field { label: "Confirm new PIN"; input-type: password; text <=> SettingsState.confirm-pin; }
+        }
+        HorizontalLayout {
+            alignment: end;
+            Btn {
+                text: "Update PIN";
+                icon: Icons.lock;
+                clicked => { Api.change-pin(); }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle {
+            text: "Recovery key";
+            sub: "Lost your recovery key? Issue a new one. The old key stops working immediately.";
+        }
+        ErrorBanner { text: SettingsState.key-error; }
+        if SettingsState.new-key == "": HorizontalLayout {
+            spacing: 12px;
+            Field {
+                label: "Enter your PIN to continue";
+                input-type: password;
+                text <=> SettingsState.key-pin;
+                accepted => { Api.regenerate-key(); }
+            }
+            VerticalLayout {
+                alignment: end;
+                Btn {
+                    text: Theme.compact ? "" : "New recovery key";
+                    icon: Icons.key;
+                    kind: "secondary";
+                    clicked => { Api.regenerate-key(); }
+                }
+            }
+        }
+        if SettingsState.new-key != "": VerticalLayout {
+            spacing: 12px;
+            Rectangle {
+                background: Theme.surface-alt;
+                border-radius: Theme.radius;
+                border-width: 1px;
+                border-color: Theme.border;
+                height: 64px;
+                Text {
+                    text: SettingsState.new-key;
+                    font-family: "Consolas";
+                    font-size: Theme.compact ? 15px : 20px;
+                    font-weight: 700;
+                    letter-spacing: 1px;
+                    color: Theme.text;
+                }
+            }
+            InfoBanner {
+                tone: "warn";
+                text: "Save this key now. It won't be shown again.";
+            }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 8px;
+                Btn {
+                    text: "Copy";
+                    icon: Icons.copy;
+                    kind: "secondary";
+                    clicked => { Api.copy-text(SettingsState.new-key); }
+                }
+                Btn {
+                    text: "I've saved it";
+                    icon: Icons.check;
+                    clicked => { SettingsState.new-key = ""; }
+                }
+            }
+        }
+    }
+
+    Card {
+        SectionTitle { text: "Data on this device"; }
+        Text { text: SettingsState.stats; color: Theme.text-muted; wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 10px;
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 38px;
+                background: Theme.surface-alt;
+                border-radius: Theme.radius-sm;
+                border-width: 1px;
+                border-color: Theme.border;
+                Text {
+                    x: 12px;
+                    width: parent.width - 24px;
+                    text: SettingsState.data-dir;
+                    color: Theme.text-muted;
+                    font-size: Theme.font-sm;
+                    overflow: elide;
+                }
+            }
+            Btn {
+                text: Theme.compact ? "" : "Open folder";
+                icon: Icons.open;
+                kind: "secondary";
+                clicked => { Api.open-data-dir(); }
+            }
+        }
+    }
+}

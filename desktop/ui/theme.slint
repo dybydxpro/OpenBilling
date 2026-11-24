@@ -1,0 +1,106 @@
+// Design tokens shared by every screen.
+
+export global Theme {
+    // Surfaces
+    out property <color> bg: #f5f7fb;
+    out property <color> surface: #ffffff;
+    out property <color> surface-alt: #f8fafc;
+    out property <color> border: #e2e8f0;
+    out property <color> border-strong: #cbd5e1;
+
+    // Text
+    out property <color> text: #0f172a;
+    out property <color> text-muted: #64748b;
+    out property <color> text-subtle: #94a3b8;
+    out property <color> on-primary: #ffffff;
+
+    // Brand
+    out property <color> primary: #4f46e5;
+    out property <color> primary-hover: #4338ca;
+    out property <color> primary-pressed: #3730a3;
+    out property <color> primary-soft: #eef2ff;
+    out property <color> primary-soft-2: #e0e7ff;
+
+    // Sidebar
+    out property <color> nav-bg: #111827;
+    out property <color> nav-text: #cbd5e1;
+    out property <color> nav-active: #1f2937;
+
+    // Status
+    out property <color> success: #047857;
+    out property <color> success-soft: #ecfdf5;
+    out property <color> warning: #b45309;
+    out property <color> warning-soft: #fffbeb;
+    out property <color> danger: #dc2626;
+    out property <color> danger-hover: #b91c1c;
+    out property <color> danger-soft: #fef2f2;
+    out property <color> neutral-soft: #f1f5f9;
+
+    // Shape & type
+    out property <length> radius-sm: 6px;
+    out property <length> radius: 10px;
+    out property <length> radius-lg: 16px;
+    out property <length> font-xs: 11px;
+    out property <length> font-sm: 12px;
+    out property <length> font-md: 14px;
+    out property <length> font-lg: 16px;
+    out property <length> font-xl: 20px;
+    out property <length> font-2xl: 26px;
+
+    // Responsive breakpoint (set by the main window)
+    in-out property <bool> compact: false;
+
+    public pure function status-fg(status: string) -> color {
+        if status == "paid" { return root.success; }
+        if status == "confirmed" { return root.warning; }
+        if status == "cancelled" { return root.danger; }
+        if status == "overdue" { return root.danger; }
+        return root.text-muted;
+    }
+
+    public pure function status-bg(status: string) -> color {
+        if status == "paid" { return root.success-soft; }
+        if status == "confirmed" { return root.warning-soft; }
+        if status == "cancelled" { return root.danger-soft; }
+        if status == "overdue" { return root.danger-soft; }
+        return root.neutral-soft;
+    }
+}
+
+export global Icons {
+    out property <image> dashboard: @image-url("../assets/icons/dashboard.svg");
+    out property <image> orders: @image-url("../assets/icons/orders.svg");
+    out property <image> invoice: @image-url("../assets/icons/invoice.svg");
+    out property <image> customers: @image-url("../assets/icons/customers.svg");
+    out property <image> template: @image-url("../assets/icons/template.svg");
+    out property <image> reports: @image-url("../assets/icons/reports.svg");
+    out property <image> backup: @image-url("../assets/icons/backup.svg");
+    out property <image> lock: @image-url("../assets/icons/lock.svg");
+    out property <image> plus: @image-url("../assets/icons/plus.svg");
+    out property <image> search: @image-url("../assets/icons/search.svg");
+    out property <image> download: @image-url("../assets/icons/download.svg");
+    out property <image> upload: @image-url("../assets/icons/upload.svg");
+    out property <image> edit: @image-url("../assets/icons/edit.svg");
+    out property <image> trash: @image-url("../assets/icons/trash.svg");
+    out property <image> check: @image-url("../assets/icons/check.svg");
+    out property <image> close: @image-url("../assets/icons/close.svg");
+    out property <image> eye: @image-url("../assets/icons/eye.svg");
+    out property <image> eye-off: @image-url("../assets/icons/eye-off.svg");
+    out property <image> key: @image-url("../assets/icons/key.svg");
+    out property <image> chevron-right: @image-url("../assets/icons/chevron-right.svg");
+    out property <image> chevron-left: @image-url("../assets/icons/chevron-left.svg");
+    out property <image> refresh: @image-url("../assets/icons/refresh.svg");
+    out property <image> open: @image-url("../assets/icons/open.svg");
+    out property <image> copy: @image-url("../assets/icons/copy.svg");
+    out property <image> settings: @image-url("../assets/icons/settings.svg");
+    out property <image> backspace: @image-url("../assets/icons/backspace.svg");
+    out property <image> code: @image-url("../assets/icons/code.svg");
+    out property <image> alert: @image-url("../assets/icons/alert.svg");
+    out property <image> info: @image-url("../assets/icons/info.svg");
+    out property <image> star: @image-url("../assets/icons/star.svg");
+    out property <image> filter: @image-url("../assets/icons/filter.svg");
+    out property <image> calendar: @image-url("../assets/icons/calendar.svg");
+    out property <image> wallet: @image-url("../assets/icons/wallet.svg");
+    out property <image> clock: @image-url("../assets/icons/clock.svg");
+    out property <image> shield: @image-url("../assets/icons/shield.svg");
+}

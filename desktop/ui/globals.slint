@@ -1,0 +1,351 @@
+// Data structures and global state shared between the UI and Rust.
+// Rust fills these globals; screens read them and report user actions
+// through the callbacks in `Api`.
+
+export struct OrderRow {
+    id: int,
+    order-no: string,
+    customer: string,
+    date: string,
+    due: string,
+    status: string,        // draft | confirmed | paid | cancelled
+    status-label: string,
+    overdue: bool,
+    total: string,
+    invoice-no: string,
+    versions: int,
+}
+
+export struct CustomerRow {
+    id: int,
+    name: string,
+    initials: string,
+    email: string,
+    phone: string,
+    address: string,
+    orders: int,
+    billed: string,
+}
+
+export struct TemplateRow {
+    id: int,
+    name: string,
+    business: string,
+    prefix: string,
+    currency: string,
+    tax: string,
+    accent: color,
+    is-default: bool,
+    updated: string,
+}
+
+export struct InvoiceRow {
+    id: int,
+    invoice-no: string,
+    order-id: int,
+    order-no: string,
+    customer: string,
+    status: string,
+    status-label: string,
+    version: int,
+    total: string,
+    updated: string,
+}
+
+export struct VersionRow {
+    id: int,
+    version: int,
+    created: string,
+    total: string,
+    note: string,
+    latest: bool,
+}
+
+export struct ItemRow {
+    description: string,
+    quantity: string,
+    price: string,
+    amount: string,
+}
+
+export struct Kpi {
+    label: string,
+    value: string,
+    hint: string,
+    tone: string,          // neutral | good | warn | bad
+}
+
+export struct Bar {
+    label: string,
+    value: string,
+    ratio: float,          // 0..1
+}
+
+export struct NameTotal {
+    name: string,
+    detail: string,
+    total: string,
+    ratio: float,
+}
+
+// ---------------------------------------------------------------------------
+
+export global AppState {
+    // "auth" until the user signs in, then "app".
+    in-out property <string> screen: "auth";
+    // dashboard | orders | order-edit | order-view | invoices | customers
+    // templates | template-edit | reports | settings
+    in-out property <string> page: "dashboard";
+    in-out property <string> business-name: "OpenBilling";
+
+    // Toast
+    in-out property <bool> toast-visible: false;
+    in-out property <string> toast-text;
+    in-out property <string> toast-kind: "info";   // info | success | error
+
+    // Generic confirmation dialog
+    in-out property <bool> confirm-visible: false;
+    in-out property <string> confirm-title;
+    in-out property <string> confirm-message;
+    in-out property <string> confirm-action-label: "Confirm";
+    in-out property <bool> confirm-danger: false;
+}
+
+export global AuthState {
+    // setup-pin | setup-confirm | setup-key | login | reset-key | reset-pin
+    // | reset-confirm | reset-done
+    in-out property <string> mode: "login";
+    in-out property <int> pin-len: 0;
+    in-out property <[string]> pin-digits: ["", "", "", "", "", ""];
+    in-out property <bool> show-pin: false;
+    in-out property <string> error;
+    in-out property <bool> busy: false;
+    in-out property <bool> shake: false;
+    in-out property <string> recovery-key;
+    in-out property <bool> key-saved: false;
+    in-out property <string> key-input;
+}
+
+export global DashboardState {
+    in-out property <string> greeting: "Welcome back";
+    in-out property <string> today;
+    in-out property <[Kpi]> kpis;
+    in-out property <[Bar]> monthly;
+    in-out property <string> monthly-total;
+    in-out property <[NameTotal]> statuses;
+    in-out property <[OrderRow]> recent;
+    in-out property <bool> empty: true;
+}
+
+export global OrdersState {
+    in-out property <string> search;
+    in-out property <string> status-filter: "all";
+    in-out property <[OrderRow]> rows;
+    in-out property <string> summary;
+}
+
+export global OrderForm {
+    in-out property <int> id: 0;
+    in-out property <string> title: "New order";
+    in-out property <[string]> customers;
+    in-out property <int> customer-index: -1;
+    in-out property <[string]> templates;
+    in-out property <int> template-index: 0;
+    in-out property <[string]> statuses: ["Draft", "Unpaid", "Paid", "Cancelled"];
+    in-out property <int> status-index: 0;
+    in-out property <string> order-date;
+    in-out property <string> due-date;
+    in-out property <string> notes;
+    in-out property <string> discount;
+    in-out property <string> tax-rate;
+    in-out property <[ItemRow]> items;
+    in-out property <string> subtotal;
+    in-out property <string> discount-total;
+    in-out property <string> tax-total;
+    in-out property <string> total;
+    in-out property <string> tax-label: "Tax";
+    in-out property <string> error;
+    // Bumped by Rust whenever the item list is replaced, so inputs rebuild.
+    in-out property <int> generation: 0;
+}
+
+export global OrderView {
+    in-out property <int> id;
+    in-out property <string> order-no;
+    in-out property <string> status;
+    in-out property <string> status-label;
+    in-out property <bool> overdue;
+    in-out property <string> customer;
+    in-out property <string> customer-contact;
+    in-out property <string> date;
+    in-out property <string> due;
+    in-out property <string> template-name;
+    in-out property <[ItemRow]> items;
+    in-out property <string> subtotal;
+    in-out property <string> discount;
+    in-out property <bool> has-discount;
+    in-out property <string> tax-label;
+    in-out property <string> tax;
+    in-out property <string> total;
+    in-out property <string> notes;
+    in-out property <string> invoice-no;
+    in-out property <[VersionRow]> versions;
+    in-out property <string> version-note;
+    in-out property <bool> generate-visible: false;
+}
+
+export global InvoicesState {
+    in-out property <string> search;
+    in-out property <[InvoiceRow]> rows;
+}
+
+export global CustomersState {
+    in-out property <string> search;
+    in-out property <[CustomerRow]> rows;
+    // Edit dialog
+    in-out property <bool> dialog-visible: false;
+    in-out property <bool> from-order: false;
+    in-out property <int> edit-id: 0;
+    in-out property <string> name;
+    in-out property <string> email;
+    in-out property <string> phone;
+    in-out property <string> address;
+    in-out property <string> error;
+}
+
+export global TemplatesState {
+    in-out property <[TemplateRow]> rows;
+}
+
+export global TemplateForm {
+    in-out property <int> id: 0;
+    in-out property <string> tab: "form";   // form | xml
+    in-out property <string> name;
+    in-out property <string> business-name;
+    in-out property <string> address;
+    in-out property <string> phone;
+    in-out property <string> email;
+    in-out property <string> website;
+    in-out property <string> tax-id;
+    in-out property <string> title;
+    in-out property <string> currency-code;
+    in-out property <string> currency-symbol;
+    in-out property <string> prefix;
+    in-out property <string> tax-label;
+    in-out property <string> tax-rate;
+    in-out property <string> terms-days;
+    in-out property <string> accent;
+    in-out property <color> accent-preview: #4f46e5;
+    in-out property <string> notes;
+    in-out property <string> terms;
+    in-out property <string> payment;
+    in-out property <string> xml;
+    in-out property <string> error;
+    in-out property <int> generation: 0;
+}
+
+export global ReportsState {
+    in-out property <string> from;
+    in-out property <string> to;
+    in-out property <[string]> statuses: ["All statuses", "Draft", "Unpaid", "Paid", "Cancelled"];
+    in-out property <int> status-index: 0;
+    in-out property <[string]> customers: ["All customers"];
+    in-out property <int> customer-index: 0;
+    in-out property <[Kpi]> kpis;
+    in-out property <[Kpi]> kpis-2;
+    in-out property <[NameTotal]> by-customer;
+    in-out property <[Bar]> by-month;
+    in-out property <[OrderRow]> rows;
+    in-out property <string> error;
+    in-out property <string> range-label;
+}
+
+export global SettingsState {
+    in-out property <string> data-dir;
+    in-out property <string> stats;
+    in-out property <string> last-backup: "Never";
+    in-out property <string> current-pin;
+    in-out property <string> new-pin;
+    in-out property <string> confirm-pin;
+    in-out property <string> pin-error;
+    in-out property <string> key-pin;
+    in-out property <string> key-error;
+    in-out property <string> new-key;
+}
+
+export global Api {
+    // Navigation & shell
+    callback navigate(string);
+    callback lock();
+    callback dismiss-toast();
+    callback confirm-accepted();
+    callback confirm-cancelled();
+    callback copy-text(string);
+
+    // Auth
+    callback pin-key(string);           // "0".."9", "back", "clear"
+    callback auth-continue();           // primary button in the current mode
+    callback auth-forgot();
+    callback auth-back();
+
+    // Dashboard
+    callback refresh-dashboard();
+
+    // Orders
+    callback orders-search();
+    callback new-order();
+    callback open-order(int);
+    callback edit-order(int);
+    callback delete-order(int);
+    callback set-order-status(int, string);
+    callback order-item-edited(int, string, string);   // index, field, value
+    callback order-add-item();
+    callback order-remove-item(int);
+    callback order-recalc();
+    callback order-customer-chosen(int);
+    callback order-template-chosen(int);
+    callback order-save();
+    callback order-cancel();
+    callback generate-invoice();
+
+    // Invoices
+    callback invoices-search();
+    callback download-version(int);
+    callback open-version(int);
+    callback download-latest(int);      // invoice id
+
+    // Customers
+    callback customers-search();
+    callback new-customer(bool);        // true when launched from the order form
+    callback edit-customer(int);
+    callback delete-customer(int);
+    callback customer-save();
+    callback customer-cancel();
+    callback customer-orders(int);
+
+    // Templates
+    callback new-template();
+    callback edit-template(int);
+    callback duplicate-template(int);
+    callback delete-template(int);
+    callback default-template(int);
+    callback import-template();
+    callback export-template(int);
+    callback template-tab(string);
+    callback template-accent-edited();
+    callback template-save();
+    callback template-cancel();
+    callback template-export-current();
+
+    // Reports
+    callback run-report();
+    callback report-preset(string);
+    callback export-report();
+
+    // Settings / backup
+    callback create-backup();
+    callback restore-backup();
+    callback change-pin();
+    callback regenerate-key();
+    callback open-data-dir();
+}

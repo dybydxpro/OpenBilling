@@ -1,0 +1,47 @@
+import { Theme } from "../theme.slint";
+
+export component PinSlot inherits Rectangle {
+    in property <int> state; // 0: empty, 1: filled-hidden, 2: filled-visible, 3: active
+    in property <string> digit;
+    in property <bool> error: false;
+
+    width: 46px;
+    height: 56px;
+    border-radius: 12px;
+    background: state == 0 ? Theme.neutral-soft : (state == 3 ? Theme.surface : Theme.primary-soft);
+    border-width: state == 3 || error ? 2px : 0px;
+    border-color: error ? Theme.danger : Theme.primary;
+    animate background { duration: 120ms; }
+
+    property <bool> cursor-visible: true;
+    Timer {
+        interval: 530ms;
+        running: root.state == 3;
+        triggered => { root.cursor-visible = !root.cursor-visible; }
+    }
+
+    if state == 2: Text {
+        text: root.digit;
+        font-size: 22px;
+        font-weight: 700;
+        color: Theme.primary;
+    }
+    if state == 1: Rectangle {
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: Theme.primary;
+    }
+    if state == 3: Rectangle {
+        width: 2px;
+        height: 22px;
+        background: Theme.primary;
+        opacity: root.cursor-visible ? 1.0 : 0.15;
+    }
+    if state == 0: Rectangle {
+        width: 8px;
+        height: 8px;
+        border-radius: 4px;
+        background: Theme.border-strong;
+    }
+}

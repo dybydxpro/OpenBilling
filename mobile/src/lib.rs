@@ -1,9 +1,6 @@
-use app_core::models::User;
+//! Mobile (Android / iOS) entry point. Business logic lives in `app-core`;
+//! the Slint UI wiring is still to be shared with the desktop crate.
 
 pub fn mobile_app_name() -> &'static str {
     app_core::app_name()
-}
-
-pub fn create_mobile_user(id: u64, name: String) -> User {
-    app_core::services::create_user(id, name)
 }

@@ -1,0 +1,215 @@
+import { Theme, Icons } from "../theme.slint";
+import { Api, AppState, DashboardState, Bar, NameTotal } from "../globals.slint";
+import { Btn, Card, KpiCard, PageHeader, PageScroll, SectionTitle, RatioBar, Icon, EmptyState } from "../components/widgets.slint";
+import { OrderRowView, OrdersHeader } from "orders.slint";
+
+export component BarChart inherits Rectangle {
+    in property <[Bar]> bars;
+    in property <length> chart-height: 170px;
+    height: chart-height + 44px;
+
+    HorizontalLayout {
+        spacing: 10px;
+        for bar in root.bars: VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 6px;
+            alignment: end;
+            Text {
+                text: bar.value;
+                font-size: Theme.font-xs;
+                color: Theme.text-muted;
+                horizontal-alignment: center;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: Theme.compact ? 22px : 36px;
+                    height: max(4px, root.chart-height * bar.ratio);
+                    border-radius: 6px;
+                    background: bar.ratio > 0 ? @linear-gradient(180deg, #6366f1 0%, #4f46e5 100%) : Theme.neutral-soft;
+                    animate height { duration: 500ms; easing: ease-out; }
+                }
+            }
+            Text {
+                text: bar.label;
+                font-size: Theme.font-sm;
+                color: Theme.text-muted;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
+
+export component BreakdownList inherits VerticalLayout {
+    in property <[NameTotal]> rows;
+    in property <string> empty-text: "Nothing to show yet.";
+    spacing: 14px;
+    alignment: start;
+    if rows.length == 0: Text {
+        text: root.empty-text;
+        color: Theme.text-subtle;
+    }
+    for r in root.rows: VerticalLayout {
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 8px;
+            Text { text: r.name; color: Theme.text; font-weight: 600; horizontal-stretch: 1; overflow: elide; }
+            Text { text: r.detail; color: Theme.text-muted; font-size: Theme.font-sm; vertical-alignment: center; }
+            Text { text: r.total; color: Theme.text; font-weight: 700; horizontal-alignment: right; min-width: 70px; }
+        }
+        RatioBar { ratio: r.ratio; }
+    }
+}
+
+component GettingStarted inherits Card {
+    pad: 28px;
+    SectionTitle {
+        text: "Let's get your business set up";
+        sub: "Three quick steps and you'll be sending your first invoice.";
+    }
+    for step[i] in [
+        { title: "Personalise your invoice template", body: "Add your business name, address, currency and tax settings.", action: "templates", label: "Open templates" },
+        { title: "Add your customers", body: "Save names and contact details once, reuse them on every order.", action: "customers", label: "Add customer" },
+        { title: "Create your first order", body: "Add items, then generate a PDF invoice in one click.", action: "new-order", label: "New order" },
+    ]: HorizontalLayout {
+        spacing: 14px;
+        VerticalLayout {
+            alignment: start;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: 16px;
+                background: Theme.primary-soft;
+                Text { text: i + 1; color: Theme.primary; font-weight: 700; }
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+            Text { text: step.title; font-weight: 700; color: Theme.text; wrap: word-wrap; }
+            Text { text: step.body; color: Theme.text-muted; font-size: Theme.font-sm; wrap: word-wrap; }
+        }
+        VerticalLayout {
+            alignment: center;
+            Btn {
+                text: Theme.compact ? "" : step.label;
+                icon: Icons.chevron-right;
+                kind: i == 2 ? "primary" : "secondary";
+                small: true;
+                clicked => {
+                    if step.action == "new-order" { Api.new-order(); } else { Api.navigate(step.action); }
+                }
+            }
+        }
+    }
+}
+
+export component DashboardPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+
+    PageHeader {
+        title: DashboardState.greeting;
+        sub: DashboardState.today;
+        Btn {
+            text: Theme.compact ? "" : "Refresh";
+            icon: Icons.refresh;
+            kind: "secondary";
+            clicked => { Api.refresh-dashboard(); }
+        }
+        Btn {
+            text: Theme.compact ? "" : "New order";
+            icon: Icons.plus;
+            clicked => { Api.new-order(); }
+        }
+    }
+
+    if DashboardState.empty: GettingStarted { }
+
+    if !Theme.compact: HorizontalLayout {
+        spacing: 16px;
+        for k[i] in DashboardState.kpis: KpiCard {
+            label: k.label;
+            value: k.value;
+            hint: k.hint;
+            tone: k.tone;
+            icon: i == 0 ? Icons.wallet : i == 1 ? Icons.clock : i == 2 ? Icons.alert : Icons.check;
+        }
+    }
+    if Theme.compact: VerticalLayout {
+        spacing: 12px;
+        for k[i] in DashboardState.kpis: KpiCard {
+            label: k.label;
+            value: k.value;
+            hint: k.hint;
+            tone: k.tone;
+            icon: i == 0 ? Icons.wallet : i == 1 ? Icons.clock : i == 2 ? Icons.alert : Icons.check;
+        }
+    }
+
+    if !Theme.compact: HorizontalLayout {
+        spacing: 16px;
+        Card {
+            horizontal-stretch: 3;
+            SectionTitle {
+                text: "Sales";
+                sub: "Confirmed and paid orders, last 6 months";
+                Text {
+                    text: DashboardState.monthly-total;
+                    font-size: Theme.font-lg;
+                    font-weight: 700;
+                    color: Theme.text;
+                    horizontal-alignment: right;
+                }
+            }
+            BarChart { bars: DashboardState.monthly; }
+        }
+        Card {
+            horizontal-stretch: 2;
+            SectionTitle { text: "Orders by status"; }
+            BreakdownList { rows: DashboardState.statuses; }
+        }
+    }
+    if Theme.compact: VerticalLayout {
+        spacing: 16px;
+        Card {
+            SectionTitle { text: "Sales"; sub: "Last 6 months · " + DashboardState.monthly-total; }
+            BarChart { bars: DashboardState.monthly; chart-height: 120px; }
+        }
+        Card {
+            SectionTitle { text: "Orders by status"; }
+            BreakdownList { rows: DashboardState.statuses; }
+        }
+    }
+
+    Card {
+        pad: 0px;
+        HorizontalLayout {
+            padding: 20px;
+            padding-bottom: 8px;
+            SectionTitle { text: "Recent orders"; horizontal-stretch: 1; }
+            Btn {
+                text: "View all";
+                kind: "ghost";
+                small: true;
+                icon: Icons.chevron-right;
+                clicked => { Api.navigate("orders"); }
+            }
+        }
+        if DashboardState.recent.length == 0: Text {
+            text: "Orders you create will appear here.";
+            color: Theme.text-subtle;
+            horizontal-alignment: center;
+            height: 60px;
+            vertical-alignment: center;
+        }
+        if DashboardState.recent.length > 0: VerticalLayout {
+            padding-bottom: 6px;
+            OrdersHeader { }
+            for row in DashboardState.recent: OrderRowView {
+                data: row;
+                clicked => { Api.open-order(row.id); }
+            }
+        }
+    }
+}
