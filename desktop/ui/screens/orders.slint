@@ -120,7 +120,13 @@ export component OrdersPage inherits VerticalLayout {
             text <=> OrdersState.search;
             changed => { Api.orders-search(); }
         }
-        HorizontalLayout {
+        // Scrolls sideways when the window is too narrow for every chip.
+        chip-strip := Flickable {
+            height: 32px;
+            content-width: chips.preferred-width;
+            content-height: 32px;
+            interactive: self.content-width > self.width;
+            chips := HorizontalLayout {
             spacing: 8px;
             alignment: start;
             for f in [
@@ -137,6 +143,7 @@ export component OrdersPage inherits VerticalLayout {
                     OrdersState.status-filter = f.key;
                     Api.orders-search();
                 }
+            }
             }
         }
     }
@@ -318,7 +325,7 @@ export component OrderEditPage inherits PageScroll {
         }
     }
 
-    ErrorBanner { text: OrderForm.error; }
+    if OrderForm.error != "": ErrorBanner { text: OrderForm.error; }
 
     Card {
         SectionTitle { text: "Customer & details"; }
@@ -516,6 +523,7 @@ component VersionRowView inherits Rectangle {
             spacing: 2px;
             HorizontalLayout {
                 spacing: 6px;
+                alignment: start;
                 Text { text: root.v.total; font-weight: 700; color: Theme.text; }
                 if root.v.latest: Text { text: "Latest"; font-size: Theme.font-xs; color: Theme.primary; font-weight: 700; vertical-alignment: center; }
             }
@@ -621,6 +629,7 @@ component OrderSideCards inherits VerticalLayout {
         }
         HorizontalLayout {
             spacing: 8px;
+            alignment: start;
             if OrderView.status != "paid" && OrderView.status != "cancelled": Btn {
                 text: "Mark as paid";
                 icon: Icons.check;
@@ -651,11 +660,14 @@ component OrderSideCards inherits VerticalLayout {
                 color: Theme.text-muted;
                 wrap: word-wrap;
             }
-            Btn {
-                text: "Generate invoice";
-                icon: Icons.invoice;
-                enabled: OrderView.status != "cancelled";
-                clicked => { Api.generate-invoice(); }
+            HorizontalLayout {
+                alignment: start;
+                Btn {
+                    text: "Generate invoice";
+                    icon: Icons.invoice;
+                    enabled: OrderView.status != "cancelled";
+                    clicked => { Api.generate-invoice(); }
+                }
             }
         }
         if OrderView.invoice-no != "": VerticalLayout {
@@ -721,13 +733,12 @@ export component OrderViewPage inherits PageScroll {
         spacing: 18px;
         alignment: stretch;
         VerticalLayout {
-            horizontal-stretch: 3;
+            horizontal-stretch: 1;
             alignment: start;
             OrderItemsCard { }
         }
         VerticalLayout {
-            horizontal-stretch: 2;
-            min-width: 300px;
+            width: 380px;
             alignment: start;
             OrderSideCards { }
         }
@@ -748,6 +759,7 @@ export component GenerateInvoiceDialog inherits Modal {
         label: "What changed? (optional)";
         placeholder: "e.g. Added delivery charge";
         text <=> OrderView.version-note;
+        init => { self.focus-input(); }
         accepted => { Api.generate-invoice(); }
     }
     HorizontalLayout {

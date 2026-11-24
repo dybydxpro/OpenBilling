@@ -126,8 +126,7 @@ impl InvoiceTemplate {
         }
         let prefix_ok = !s.invoice_prefix.is_empty()
             && s.invoice_prefix.len() <= 12
-            && s
-                .invoice_prefix
+            && s.invoice_prefix
                 .chars()
                 .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '/'));
         if !prefix_ok {
@@ -149,7 +148,8 @@ impl InvoiceTemplate {
         let mut body = String::new();
         let mut ser = quick_xml::se::Serializer::new(&mut body);
         ser.indent(' ', 2);
-        self.serialize(ser).map_err(|e| CoreError::Xml(e.to_string()))?;
+        self.serialize(ser)
+            .map_err(|e| CoreError::Xml(e.to_string()))?;
         Ok(format!(
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
              <!-- OpenBilling invoice template. Edit the values, keep the element names. -->\n\
@@ -221,14 +221,25 @@ pub fn list(conn: &Connection) -> Result<Vec<TemplateRecord>> {
         "SELECT id, is_default, updated_at, xml FROM templates ORDER BY is_default DESC, name COLLATE NOCASE",
     )?;
     let rows = stmt.query_map([], |r| {
-        Ok((r.get::<_, i64>(0)?, r.get::<_, bool>(1)?, r.get::<_, String>(2)?, r.get::<_, String>(3)?))
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, bool>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, String>(3)?,
+        ))
     })?;
     let mut out = Vec::new();
     for row in rows {
         let (id, is_default, updated_at, xml) = row?;
         // Stored XML was validated on save; fall back defensively anyway.
         let template = InvoiceTemplate::from_xml(&xml).unwrap_or_default();
-        out.push(TemplateRecord { id, is_default, updated_at, xml, template });
+        out.push(TemplateRecord {
+            id,
+            is_default,
+            updated_at,
+            xml,
+            template,
+        });
     }
     Ok(out)
 }
@@ -243,7 +254,13 @@ pub fn get(conn: &Connection, id: i64) -> Result<TemplateRecord> {
         .optional()?
         .ok_or(CoreError::NotFound("Template"))?;
     let template = InvoiceTemplate::from_xml(&xml)?;
-    Ok(TemplateRecord { id, is_default, updated_at, xml, template })
+    Ok(TemplateRecord {
+        id,
+        is_default,
+        updated_at,
+        xml,
+        template,
+    })
 }
 
 /// Id of the default template, creating a starter template if none exist.
@@ -270,7 +287,8 @@ pub fn get_default(conn: &Connection) -> Result<TemplateRecord> {
 pub fn create(conn: &Connection, xml: &str) -> Result<i64> {
     let t = InvoiceTemplate::from_xml(xml)?;
     let now = now_string();
-    let has_any: bool = conn.query_row("SELECT EXISTS(SELECT 1 FROM templates)", [], |r| r.get(0))?;
+    let has_any: bool =
+        conn.query_row("SELECT EXISTS(SELECT 1 FROM templates)", [], |r| r.get(0))?;
     conn.execute(
         "INSERT INTO templates (name, xml, is_default, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)",
         params![t.name.trim(), xml, !has_any, now],
@@ -307,7 +325,11 @@ pub fn delete(conn: &Connection, id: i64) -> Result<()> {
         return invalid("You need at least one template.");
     }
     let was_default: bool = conn
-        .query_row("SELECT is_default FROM templates WHERE id = ?1", [id], |r| r.get(0))
+        .query_row(
+            "SELECT is_default FROM templates WHERE id = ?1",
+            [id],
+            |r| r.get(0),
+        )
         .optional()?
         .ok_or(CoreError::NotFound("Template"))?;
     let tx = conn.unchecked_transaction()?;
@@ -357,7 +379,10 @@ mod tests {
         assert!(InvoiceTemplate::from_xml("<foo/>").is_err());
         assert!(InvoiceTemplate::from_xml("not xml at all").is_err());
         let bad_color = InvoiceTemplate {
-            settings: TemplateSettings { accent_color: "blue".into(), ..Default::default() },
+            settings: TemplateSettings {
+                accent_color: "blue".into(),
+                ..Default::default()
+            },
             ..Default::default()
         };
         assert!(InvoiceTemplate::from_xml(&bad_color.to_xml().unwrap()).is_err());

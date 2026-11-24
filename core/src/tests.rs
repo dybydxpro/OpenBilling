@@ -8,7 +8,11 @@ use crate::*;
 fn customer(app: &App, name: &str) -> i64 {
     customers::create(
         app.conn(),
-        &CustomerInput { name: name.into(), email: format!("{}@example.com", name.to_lowercase()), ..Default::default() },
+        &CustomerInput {
+            name: name.into(),
+            email: format!("{}@example.com", name.to_lowercase()),
+            ..Default::default()
+        },
     )
     .unwrap()
 }
@@ -24,8 +28,16 @@ fn order_input(customer_id: i64, date: &str) -> OrderInput {
         discount_cents: 0,
         tax_rate: 10.0,
         items: vec![
-            OrderItem { description: "Widget".into(), quantity: 2.0, unit_price_cents: 1500 },
-            OrderItem { description: "Setup".into(), quantity: 1.0, unit_price_cents: 2000 },
+            OrderItem {
+                description: "Widget".into(),
+                quantity: 2.0,
+                unit_price_cents: 1500,
+            },
+            OrderItem {
+                description: "Setup".into(),
+                quantity: 1.0,
+                unit_price_cents: 2000,
+            },
         ],
     }
 }
@@ -35,15 +47,27 @@ fn pin_setup_login_and_recovery() {
     let app = App::open_in_memory().unwrap();
     let c = app.conn();
     assert!(!auth::is_initialized(c).unwrap());
-    assert!(auth::setup(c, "111111", "111111").is_err(), "repeated digits rejected");
-    assert!(auth::setup(c, "123456", "123456").is_err(), "sequence rejected");
-    assert!(auth::setup(c, "205813", "205814").is_err(), "mismatch rejected");
+    assert!(
+        auth::setup(c, "111111", "111111").is_err(),
+        "repeated digits rejected"
+    );
+    assert!(
+        auth::setup(c, "123456", "123456").is_err(),
+        "sequence rejected"
+    );
+    assert!(
+        auth::setup(c, "205813", "205814").is_err(),
+        "mismatch rejected"
+    );
 
     let key = auth::setup(c, "205813", "205813").unwrap();
     assert_eq!(key.len(), 29);
     assert!(auth::is_initialized(c).unwrap());
     auth::verify_pin(c, "205813").unwrap();
-    assert!(matches!(auth::verify_pin(c, "000001"), Err(CoreError::Auth(_))));
+    assert!(matches!(
+        auth::verify_pin(c, "000001"),
+        Err(CoreError::Auth(_))
+    ));
 
     // Lowercase, missing dashes and look-alike letters are all accepted.
     let typed = key.to_lowercase().replace('-', " ");
@@ -60,11 +84,20 @@ fn lockout_after_repeated_failures() {
     let c = app.conn();
     auth::setup(c, "205813", "205813").unwrap();
     for _ in 0..4 {
-        assert!(matches!(auth::verify_pin(c, "999990"), Err(CoreError::Auth(_))));
+        assert!(matches!(
+            auth::verify_pin(c, "999990"),
+            Err(CoreError::Auth(_))
+        ));
     }
-    assert!(matches!(auth::verify_pin(c, "999990"), Err(CoreError::LockedOut(_))));
+    assert!(matches!(
+        auth::verify_pin(c, "999990"),
+        Err(CoreError::LockedOut(_))
+    ));
     // Even the right PIN is refused while locked.
-    assert!(matches!(auth::verify_pin(c, "205813"), Err(CoreError::LockedOut(_))));
+    assert!(matches!(
+        auth::verify_pin(c, "205813"),
+        Err(CoreError::LockedOut(_))
+    ));
     assert!(auth::lockout_remaining(c).unwrap() > 0);
 }
 
@@ -76,7 +109,10 @@ fn template_crud_and_default() {
     assert_eq!(list.len(), 1, "starter template is created");
     let first = list[0].id;
 
-    let mut t = InvoiceTemplate { name: "Retail".into(), ..Default::default() };
+    let mut t = InvoiceTemplate {
+        name: "Retail".into(),
+        ..Default::default()
+    };
     t.settings.invoice_prefix = "RT-".into();
     let id = templates::create(c, &t.to_xml().unwrap()).unwrap();
     templates::set_default(c, id).unwrap();
@@ -84,8 +120,15 @@ fn template_crud_and_default() {
     assert!(templates::update(c, id, "<invoice-template><name/></invoice-template>").is_err());
 
     templates::delete(c, id).unwrap();
-    assert_eq!(templates::default_id(c).unwrap(), first, "default falls back");
-    assert!(templates::delete(c, first).is_err(), "last template is kept");
+    assert_eq!(
+        templates::default_id(c).unwrap(),
+        first,
+        "default falls back"
+    );
+    assert!(
+        templates::delete(c, first).is_err(),
+        "last template is kept"
+    );
 }
 
 #[test]
@@ -101,16 +144,26 @@ fn order_invoice_versions_and_pdf() {
     let g1 = invoices::generate(c, id, "").unwrap();
     assert_eq!(g1.snapshot.invoice_no, "INV-0001");
     assert_eq!(g1.snapshot.version, 1);
-    assert_eq!(orders::get(c, id).unwrap().status, OrderStatus::Confirmed, "draft gets confirmed");
+    assert_eq!(
+        orders::get(c, id).unwrap().status,
+        OrderStatus::Confirmed,
+        "draft gets confirmed"
+    );
 
-    assert!(invoices::generate(c, id, "").is_err(), "no-op regeneration refused");
+    assert!(
+        invoices::generate(c, id, "").is_err(),
+        "no-op regeneration refused"
+    );
 
     let mut input = orders::get(c, id).unwrap().to_input();
     input.items[0].quantity = 3.0;
     orders::update(c, id, &input).unwrap();
     let g2 = invoices::generate(c, id, "Added a widget").unwrap();
     assert_eq!(g2.snapshot.version, 2);
-    assert_eq!(g2.snapshot.invoice_no, "INV-0001", "number is stable across versions");
+    assert_eq!(
+        g2.snapshot.invoice_no, "INV-0001",
+        "number is stable across versions"
+    );
 
     let versions = invoices::versions(c, g1.invoice_id).unwrap();
     assert_eq!(versions.len(), 2);
@@ -120,8 +173,14 @@ fn order_invoice_versions_and_pdf() {
     let pdf = pdf::render_invoice(&g2.snapshot).unwrap();
     assert!(pdf.starts_with(b"%PDF"));
 
-    assert!(orders::delete(c, id).is_err(), "invoiced orders can't be deleted");
-    assert!(customers::delete(c, cust).is_err(), "customers with orders can't be deleted");
+    assert!(
+        orders::delete(c, id).is_err(),
+        "invoiced orders can't be deleted"
+    );
+    assert!(
+        customers::delete(c, cust).is_err(),
+        "customers with orders can't be deleted"
+    );
 }
 
 #[test]
@@ -165,7 +224,11 @@ fn reports_and_dashboard() {
 
     let march = reports::run(
         c,
-        &OrderFilter { from: Some("2026-03-01".into()), to: Some("2026-03-31".into()), ..Default::default() },
+        &OrderFilter {
+            from: Some("2026-03-01".into()),
+            to: Some("2026-03-31".into()),
+            ..Default::default()
+        },
     )
     .unwrap();
     assert_eq!(march.summary.order_count, 2);

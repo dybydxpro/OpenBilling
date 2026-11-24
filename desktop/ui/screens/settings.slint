@@ -80,7 +80,7 @@ export component SettingsPage inherits PageScroll {
 
     Card {
         SectionTitle { text: "Change PIN"; }
-        ErrorBanner { text: SettingsState.pin-error; }
+        if SettingsState.pin-error != "": ErrorBanner { text: SettingsState.pin-error; }
         if !Theme.compact: HorizontalLayout {
             spacing: 12px;
             Field { label: "Current PIN"; input-type: password; text <=> SettingsState.current-pin; }
@@ -108,7 +108,7 @@ export component SettingsPage inherits PageScroll {
             text: "Recovery key";
             sub: "Lost your recovery key? Issue a new one. The old key stops working immediately.";
         }
-        ErrorBanner { text: SettingsState.key-error; }
+        if SettingsState.key-error != "": ErrorBanner { text: SettingsState.key-error; }
         if SettingsState.new-key == "": HorizontalLayout {
             spacing: 12px;
             Field {

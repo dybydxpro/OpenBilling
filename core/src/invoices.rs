@@ -44,7 +44,11 @@ impl InvoiceSnapshot {
     /// True when two snapshots would print the same content (ignores the
     /// version number and issue date).
     fn same_content(&self, other: &Self) -> bool {
-        let strip = |s: &Self| Self { version: 0, issue_date: String::new(), ..s.clone() };
+        let strip = |s: &Self| Self {
+            version: 0,
+            issue_date: String::new(),
+            ..s.clone()
+        };
         strip(self) == strip(other)
     }
 
@@ -52,7 +56,13 @@ impl InvoiceSnapshot {
         let safe: String = self
             .invoice_no
             .chars()
-            .map(|c| if c.is_ascii_alphanumeric() || c == '-' { c } else { '_' })
+            .map(|c| {
+                if c.is_ascii_alphanumeric() || c == '-' {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
         format!("{safe}-v{}.pdf", self.version)
     }
@@ -111,9 +121,11 @@ pub fn generate(conn: &Connection, order_id: i64, note: &str) -> Result<Generate
     };
 
     let existing: Option<(i64, String)> = tx
-        .query_row("SELECT id, invoice_no FROM invoices WHERE order_id = ?1", [order_id], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })
+        .query_row(
+            "SELECT id, invoice_no FROM invoices WHERE order_id = ?1",
+            [order_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
         .optional()?;
     let (invoice_id, invoice_no) = match existing {
         Some(found) => found,
@@ -160,11 +172,12 @@ pub fn generate(conn: &Connection, order_id: i64, note: &str) -> Result<Generate
 
     if let Some((v, json)) = &latest
         && let Ok(prev) = serde_json::from_str::<InvoiceSnapshot>(json)
-            && prev.same_content(&snapshot) {
-                return invalid(format!(
-                    "Nothing has changed since version {v}. Download that version instead."
-                ));
-            }
+        && prev.same_content(&snapshot)
+    {
+        return invalid(format!(
+            "Nothing has changed since version {v}. Download that version instead."
+        ));
+    }
 
     tx.execute(
         "INSERT INTO invoice_versions (invoice_id, version, snapshot_json, total_cents, note, created_at)
@@ -180,7 +193,11 @@ pub fn generate(conn: &Connection, order_id: i64, note: &str) -> Result<Generate
     )?;
     let version_id = tx.last_insert_rowid();
     tx.commit()?;
-    Ok(Generated { invoice_id, version_id, snapshot })
+    Ok(Generated {
+        invoice_id,
+        version_id,
+        snapshot,
+    })
 }
 
 pub fn list(conn: &Connection, search: &str) -> Result<Vec<InvoiceSummary>> {
@@ -232,15 +249,21 @@ pub fn versions(conn: &Connection, invoice_id: i64) -> Result<Vec<InvoiceVersion
 
 pub fn invoice_for_order(conn: &Connection, order_id: i64) -> Result<Option<i64>> {
     Ok(conn
-        .query_row("SELECT id FROM invoices WHERE order_id = ?1", [order_id], |r| r.get(0))
+        .query_row(
+            "SELECT id FROM invoices WHERE order_id = ?1",
+            [order_id],
+            |r| r.get(0),
+        )
         .optional()?)
 }
 
 pub fn load_version(conn: &Connection, version_id: i64) -> Result<InvoiceSnapshot> {
     let json: String = conn
-        .query_row("SELECT snapshot_json FROM invoice_versions WHERE id = ?1", [version_id], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT snapshot_json FROM invoice_versions WHERE id = ?1",
+            [version_id],
+            |r| r.get(0),
+        )
         .optional()?
         .ok_or(CoreError::NotFound("Invoice version"))?;
     Ok(serde_json::from_str(&json)?)

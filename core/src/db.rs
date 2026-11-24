@@ -127,7 +127,9 @@ fn migrate(conn: &Connection) -> Result<()> {
 
 pub fn get_setting(conn: &Connection, key: &str) -> Result<Option<String>> {
     Ok(conn
-        .query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| r.get(0))
+        .query_row("SELECT value FROM settings WHERE key = ?1", [key], |r| {
+            r.get(0)
+        })
         .optional()?)
 }
 

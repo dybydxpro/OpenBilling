@@ -165,8 +165,6 @@ export global OrderForm {
     in-out property <string> total;
     in-out property <string> tax-label: "Tax";
     in-out property <string> error;
-    // Bumped by Rust whenever the item list is replaced, so inputs rebuild.
-    in-out property <int> generation: 0;
 }
 
 export global OrderView {
@@ -241,7 +239,6 @@ export global TemplateForm {
     in-out property <string> payment;
     in-out property <string> xml;
     in-out property <string> error;
-    in-out property <int> generation: 0;
 }
 
 export global ReportsState {

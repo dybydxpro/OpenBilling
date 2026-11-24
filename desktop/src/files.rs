@@ -27,7 +27,9 @@ pub fn save_dialog(title: &str, file_name: &str, filter: (&str, &[&str])) -> Opt
 }
 
 pub fn open_dialog(title: &str, filter: (&str, &[&str])) -> Option<PathBuf> {
-    let mut dialog = rfd::FileDialog::new().set_title(title).add_filter(filter.0, filter.1);
+    let mut dialog = rfd::FileDialog::new()
+        .set_title(title)
+        .add_filter(filter.0, filter.1);
     if let Some(dir) = documents_dir() {
         dialog = dialog.set_directory(dir);
     }
@@ -35,7 +37,9 @@ pub fn open_dialog(title: &str, filter: (&str, &[&str])) -> Option<PathBuf> {
 }
 
 pub fn display_name(path: &Path) -> String {
-    path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()
+    path.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 /// Writes a file to a private temp folder and opens it with the default app.

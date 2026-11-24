@@ -45,7 +45,11 @@ pub fn setup(conn: &Connection, pin: &str, confirm: &str) -> Result<String> {
     let key = generate_recovery_key()?;
     let tx = conn.unchecked_transaction()?;
     set_setting(&tx, KEY_PIN_HASH, &hash(pin)?)?;
-    set_setting(&tx, KEY_RECOVERY_HASH, &hash(&normalize_recovery_key(&key))?)?;
+    set_setting(
+        &tx,
+        KEY_RECOVERY_HASH,
+        &hash(&normalize_recovery_key(&key))?,
+    )?;
     reset_failures(&tx)?;
     tx.commit()?;
     Ok(key)
@@ -95,7 +99,11 @@ pub fn reset_with_recovery_key(
     let new_key = generate_recovery_key()?;
     let tx = conn.unchecked_transaction()?;
     set_setting(&tx, KEY_PIN_HASH, &hash(new_pin)?)?;
-    set_setting(&tx, KEY_RECOVERY_HASH, &hash(&normalize_recovery_key(&new_key))?)?;
+    set_setting(
+        &tx,
+        KEY_RECOVERY_HASH,
+        &hash(&normalize_recovery_key(&new_key))?,
+    )?;
     reset_failures(&tx)?;
     tx.commit()?;
     Ok(new_key)
@@ -111,7 +119,11 @@ pub fn change_pin(conn: &Connection, current: &str, new_pin: &str, confirm: &str
 pub fn regenerate_recovery_key(conn: &Connection, pin: &str) -> Result<String> {
     verify_pin(conn, pin)?;
     let key = generate_recovery_key()?;
-    set_setting(conn, KEY_RECOVERY_HASH, &hash(&normalize_recovery_key(&key))?)?;
+    set_setting(
+        conn,
+        KEY_RECOVERY_HASH,
+        &hash(&normalize_recovery_key(&key))?,
+    )?;
     Ok(key)
 }
 

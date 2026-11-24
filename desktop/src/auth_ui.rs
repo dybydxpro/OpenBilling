@@ -46,7 +46,8 @@ pub fn lock(ctx: &Rc<Ctx>) {
     // Drop anything sensitive that may still be on screen.
     let ui = ctx.ui();
     ui.global::<AppState>().set_confirm_visible(false);
-    ui.global::<crate::CustomersState>().set_dialog_visible(false);
+    ui.global::<crate::CustomersState>()
+        .set_dialog_visible(false);
     ui.global::<crate::OrderView>().set_generate_visible(false);
     crate::settings_ui::clear_sensitive(ctx);
     show_auth(ctx);
@@ -144,13 +145,24 @@ fn submit_pin(ctx: &Rc<Ctx>) {
                 return show_error(ctx, e.to_string());
             }
             *ctx.first_pin.borrow_mut() = pin;
-            let next = if mode == "setup-pin" { "setup-confirm" } else { "reset-confirm" };
+            let next = if mode == "setup-pin" {
+                "setup-confirm"
+            } else {
+                "reset-confirm"
+            };
             set_mode(ctx, next);
         }
         "setup-confirm" | "reset-confirm" => {
             let first = ctx.first_pin.borrow().clone();
             if first != pin {
-                set_mode(ctx, if mode == "setup-confirm" { "setup-pin" } else { "reset-pin" });
+                set_mode(
+                    ctx,
+                    if mode == "setup-confirm" {
+                        "setup-pin"
+                    } else {
+                        "reset-pin"
+                    },
+                );
                 return show_error(ctx, "The PINs didn't match. Please choose your PIN again.");
             }
             let result = if mode == "setup-confirm" {
@@ -161,14 +173,25 @@ fn submit_pin(ctx: &Rc<Ctx>) {
             };
             match result {
                 Ok(recovery_key) => {
-                    let done = if mode == "setup-confirm" { "setup-key" } else { "reset-done" };
+                    let done = if mode == "setup-confirm" {
+                        "setup-key"
+                    } else {
+                        "reset-done"
+                    };
                     set_mode(ctx, done);
                     s.set_recovery_key(recovery_key.into());
                     ctx.first_pin.borrow_mut().clear();
                     ctx.reset_key.borrow_mut().clear();
                 }
                 Err(e) => {
-                    set_mode(ctx, if mode == "setup-confirm" { "setup-pin" } else { "reset-key" });
+                    set_mode(
+                        ctx,
+                        if mode == "setup-confirm" {
+                            "setup-pin"
+                        } else {
+                            "reset-key"
+                        },
+                    );
                     show_error(ctx, e.to_string());
                 }
             }

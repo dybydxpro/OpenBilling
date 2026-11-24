@@ -69,7 +69,9 @@ impl Ctx {
     }
 
     pub fn ui(&self) -> MainWindow {
-        self.ui.upgrade().expect("main window is alive while callbacks run")
+        self.ui
+            .upgrade()
+            .expect("main window is alive while callbacks run")
     }
 
     /// Runs `f` with the database connection.
@@ -91,11 +93,15 @@ impl Ctx {
         state.set_toast_visible(true);
         let weak = self.ui.clone();
         let secs = if kind == "error" { 7 } else { 4 };
-        self.toast_timer.start(TimerMode::SingleShot, Duration::from_secs(secs), move || {
-            if let Some(ui) = weak.upgrade() {
-                ui.global::<AppState>().set_toast_visible(false);
-            }
-        });
+        self.toast_timer.start(
+            TimerMode::SingleShot,
+            Duration::from_secs(secs),
+            move || {
+                if let Some(ui) = weak.upgrade() {
+                    ui.global::<AppState>().set_toast_visible(false);
+                }
+            },
+        );
     }
 
     pub fn success(&self, text: impl Into<String>) {
@@ -141,5 +147,8 @@ pub fn status_index(s: OrderStatus) -> i32 {
 }
 
 pub fn status_from_index(i: i32) -> OrderStatus {
-    OrderStatus::ALL.get(i.max(0) as usize).copied().unwrap_or(OrderStatus::Draft)
+    OrderStatus::ALL
+        .get(i.max(0) as usize)
+        .copied()
+        .unwrap_or(OrderStatus::Draft)
 }

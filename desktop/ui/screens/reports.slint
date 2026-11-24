@@ -64,7 +64,7 @@ export component ReportsPage inherits PageScroll {
                 clicked => { Api.run-report(); }
             }
         }
-        ErrorBanner { text: ReportsState.error; }
+        if ReportsState.error != "": ErrorBanner { text: ReportsState.error; }
     }
 
     if !Theme.compact: VerticalLayout {

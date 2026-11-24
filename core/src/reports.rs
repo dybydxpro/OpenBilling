@@ -97,7 +97,13 @@ pub fn dashboard_at(conn: &Connection, today: NaiveDate) -> Result<Dashboard> {
         d.status_counts.push((status, n));
     }
 
-    d.recent_orders = orders::list(conn, &OrderFilter { limit: Some(6), ..Default::default() })?;
+    d.recent_orders = orders::list(
+        conn,
+        &OrderFilter {
+            limit: Some(6),
+            ..Default::default()
+        },
+    )?;
     Ok(d)
 }
 
@@ -136,8 +142,17 @@ fn counts_as_sale(s: OrderStatus) -> bool {
 /// Runs a report. The filter is the same one used by the order listing, so a
 /// report always matches what the user sees in the list.
 pub fn run(conn: &Connection, filter: &OrderFilter) -> Result<Report> {
-    let orders = orders::list(conn, &OrderFilter { limit: None, ..filter.clone() })?;
-    let mut s = ReportSummary { order_count: orders.len() as i64, ..Default::default() };
+    let orders = orders::list(
+        conn,
+        &OrderFilter {
+            limit: None,
+            ..filter.clone()
+        },
+    )?;
+    let mut s = ReportSummary {
+        order_count: orders.len() as i64,
+        ..Default::default()
+    };
     let mut customers: BTreeMap<String, (i64, i64)> = BTreeMap::new();
     let mut months: BTreeMap<String, i64> = BTreeMap::new();
 
@@ -154,8 +169,9 @@ pub fn run(conn: &Connection, filter: &OrderFilter) -> Result<Report> {
             let c = customers.entry(o.customer_name.clone()).or_default();
             c.0 += 1;
             c.1 += o.total_cents;
-            *months.entry(o.order_date.get(..7).unwrap_or("").to_string()).or_default() +=
-                o.total_cents;
+            *months
+                .entry(o.order_date.get(..7).unwrap_or("").to_string())
+                .or_default() += o.total_cents;
         }
     }
     let sale_count = orders.iter().filter(|o| counts_as_sale(o.status)).count() as i64;
@@ -165,15 +181,22 @@ pub fn run(conn: &Connection, filter: &OrderFilter) -> Result<Report> {
 
     let mut by_customer: Vec<CustomerTotal> = customers
         .into_iter()
-        .map(|(customer_name, (order_count, sales_cents))| CustomerTotal {
-            customer_name,
-            order_count,
-            sales_cents,
-        })
+        .map(
+            |(customer_name, (order_count, sales_cents))| CustomerTotal {
+                customer_name,
+                order_count,
+                sales_cents,
+            },
+        )
         .collect();
     by_customer.sort_by_key(|c| std::cmp::Reverse(c.sales_cents));
 
-    Ok(Report { summary: s, by_customer, by_month: months.into_iter().collect(), orders })
+    Ok(Report {
+        summary: s,
+        by_customer,
+        by_month: months.into_iter().collect(),
+        orders,
+    })
 }
 
 fn csv_field(s: &str) -> String {
@@ -215,8 +238,14 @@ mod tests {
     #[test]
     fn month_math() {
         let d = NaiveDate::from_ymd_opt(2026, 1, 15).unwrap();
-        assert_eq!(add_months(d, -1), NaiveDate::from_ymd_opt(2025, 12, 1).unwrap());
-        assert_eq!(add_months(d, 12), NaiveDate::from_ymd_opt(2027, 1, 1).unwrap());
+        assert_eq!(
+            add_months(d, -1),
+            NaiveDate::from_ymd_opt(2025, 12, 1).unwrap()
+        );
+        assert_eq!(
+            add_months(d, 12),
+            NaiveDate::from_ymd_opt(2027, 1, 1).unwrap()
+        );
     }
 
     #[test]

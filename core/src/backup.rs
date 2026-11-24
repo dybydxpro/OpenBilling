@@ -51,12 +51,18 @@ fn manifest_for(conn: &Connection) -> Result<BackupManifest> {
 
 /// Unique scratch file next to `near` (same volume, so renames are cheap).
 fn scratch_path(near: &Path, tag: &str) -> PathBuf {
-    let dir = near.parent().map(Path::to_path_buf).unwrap_or_else(std::env::temp_dir);
+    let dir = near
+        .parent()
+        .map(Path::to_path_buf)
+        .unwrap_or_else(std::env::temp_dir);
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_nanos())
         .unwrap_or(0);
-    dir.join(format!(".openbilling-{tag}-{}-{nanos}.tmp", std::process::id()))
+    dir.join(format!(
+        ".openbilling-{tag}-{}-{nanos}.tmp",
+        std::process::id()
+    ))
 }
 
 /// Writes a backup archive to `dest`.
@@ -68,8 +74,8 @@ pub fn create_backup(conn: &Connection, dest: &Path) -> Result<BackupManifest> {
         let partial = scratch_path(dest, "partial");
         {
             let mut zip = zip::ZipWriter::new(File::create(&partial)?);
-            let opts = SimpleFileOptions::default()
-                .compression_method(zip::CompressionMethod::Deflated);
+            let opts =
+                SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
             zip.start_file(MANIFEST, opts)?;
             zip.write_all(serde_json::to_string_pretty(&manifest)?.as_bytes())?;
             zip.start_file(DB_ENTRY, opts)?;
@@ -100,7 +106,9 @@ pub fn inspect_backup(path: &Path) -> Result<BackupManifest> {
         return invalid("This backup was made by a newer or different app.");
     }
     if manifest.schema_version > SCHEMA_VERSION {
-        return invalid("This backup was made by a newer version of OpenBilling. Update the app first.");
+        return invalid(
+            "This backup was made by a newer version of OpenBilling. Update the app first.",
+        );
     }
     Ok(manifest)
 }
