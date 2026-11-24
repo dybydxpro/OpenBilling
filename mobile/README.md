@@ -74,6 +74,11 @@ export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=...
 cargo apk build --lib --release --target aarch64-linux-android
 ```
 
+With no `--target`, `cargo apk build` packages every target in
+`build_targets` (arm64-v8a and x86_64) into one APK. 32-bit ARM (armeabi-v7a)
+isn't supported: Slint's Skia renderer has no prebuilt binaries for it, and
+Google Play requires 64-bit builds anyway.
+
 Debug builds use `~/.android/debug.keystore`. Debug APKs are large (about
 440 MB) because they keep full debug symbols. Release builds are stripped.
 

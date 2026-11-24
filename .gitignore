@@ -26,3 +26,6 @@ Cargo.lock
 
 # Local app data created by `cargo run -p app-mobile`
 mobile-preview-data/
+
+# Packaged builds (APKs etc.)
+dist/
