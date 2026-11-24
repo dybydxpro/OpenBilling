@@ -264,30 +264,23 @@ fn safe_file_stem(name: &str) -> String {
 
 fn export(ctx: &Ctx, name: &str, xml: &str) {
     let file = format!("{}.xml", safe_file_stem(name));
-    let Some(path) = files::save_dialog("Export template", &file, XML_FILTER) else {
-        return;
-    };
-    match std::fs::write(&path, xml) {
-        Ok(()) => ctx.success(format!("Exported {}", files::display_name(&path))),
-        Err(e) => ctx.toast("error", format!("Couldn't save the file: {e}")),
-    }
+    files::save(ctx, "Export template", &file, XML_FILTER, xml.as_bytes());
 }
 
 fn import(ctx: &Rc<Ctx>) {
-    let Some(path) = files::open_dialog("Import template", XML_FILTER) else {
-        return;
-    };
-    let xml = match std::fs::read_to_string(&path) {
-        Ok(x) => x,
-        Err(e) => return ctx.toast("error", format!("Couldn't read the file: {e}")),
-    };
-    match ctx.with_conn(|c| templates::create(c, &xml)) {
-        Ok(_) => {
-            ctx.success(format!("Imported {}", files::display_name(&path)));
-            refresh(ctx);
+    files::pick(ctx, "Import template", XML_FILTER, |ctx, path| {
+        let xml = match std::fs::read_to_string(&path) {
+            Ok(x) => x,
+            Err(e) => return ctx.toast("error", format!("Couldn't read the file: {e}")),
+        };
+        match ctx.with_conn(|c| templates::create(c, &xml)) {
+            Ok(_) => {
+                ctx.success(format!("Imported {}", files::display_name(&path)));
+                refresh(ctx);
+            }
+            Err(e) => ctx.fail(&e),
         }
-        Err(e) => ctx.fail(&e),
-    }
+    });
 }
 
 #[cfg(test)]

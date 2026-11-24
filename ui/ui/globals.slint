@@ -88,6 +88,11 @@ export struct NameTotal {
     ratio: float,
 }
 
+export struct FileRow {
+    name: string,
+    detail: string,
+}
+
 // ---------------------------------------------------------------------------
 
 export global AppState {
@@ -97,6 +102,11 @@ export global AppState {
     // templates | template-edit | reports | settings
     in-out property <string> page: "dashboard";
     in-out property <string> business-name: "OpenBilling";
+
+    // Phone/tablet build (no native file dialogs; touch-first tweaks).
+    in-out property <bool> mobile: false;
+    // Mobile only: folder used for exports, backups and imports.
+    in-out property <string> export-folder;
 
     // Toast
     in-out property <bool> toast-visible: false;
@@ -278,6 +288,10 @@ export global Api {
     callback confirm-accepted();
     callback confirm-cancelled();
     callback copy-text(string);
+    callback file-picked(int);
+    callback file-picker-cancel();
+    // Android Back button. Returns true if the app handled it (false = leave the app).
+    callback back() -> bool;
 
     // Auth
     callback pin-key(string);           // "0".."9", "back", "clear"
@@ -345,4 +359,12 @@ export global Api {
     callback change-pin();
     callback regenerate-key();
     callback open-data-dir();
+}
+
+// In-app file chooser used on mobile, where there are no native dialogs.
+export global FilePicker {
+    in-out property <bool> visible: false;
+    in-out property <string> title;
+    in-out property <[FileRow]> files;
+    in-out property <string> empty-text;
 }

@@ -1,23 +1,14 @@
 [package]
 name = "open-billing"
-version = "0.1.0"
-edition = "2024"
-description = "Open Billing desktop application"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "OpenBilling desktop application (Windows, macOS, Linux)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 app-core = { path = "../core" }
-arboard = "3.7.0"
-chrono = "0.4.45"
-directories = "6.0.0"
-open = "5.4.5"
+app-ui = { path = "../ui", features = ["desktop"] }
 rfd = "0.18.0"
-slint = "1.18.1"
 
 [build-dependencies]
-slint-build = "1.18.1"
 winres = "0.1"
-

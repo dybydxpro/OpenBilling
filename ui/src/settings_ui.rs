@@ -24,17 +24,13 @@ pub fn init(ctx: &Rc<Ctx>) {
     let c = ctx.clone();
     api.on_regenerate_key(move || regenerate_key(&c));
     let c = ctx.clone();
-    api.on_open_data_dir(move || {
-        if let Err(e) = open::that_detached(&c.data_dir) {
-            c.toast("error", format!("Couldn't open the folder: {e}"));
-        }
-    });
+    api.on_open_data_dir(move || files::open_folder(&c, &c.platform.data_dir));
 }
 
 pub fn refresh(ctx: &Rc<Ctx>) {
     let ui_ = ctx.ui();
     let s = ui_.global::<SettingsState>();
-    s.set_data_dir(ctx.data_dir.display().to_string().into());
+    s.set_data_dir(ctx.platform.data_dir.display().to_string().into());
     let stats = ctx.with_conn(|c| -> app_core::Result<String> {
         let customers = customers::list(c, "")?.len();
         let orders = orders::list(c, &Default::default())?.len();
@@ -74,7 +70,8 @@ fn create_backup(ctx: &Rc<Ctx>) {
         "OpenBilling-backup-{}.{FILE_EXTENSION}",
         Local::now().format("%Y-%m-%d")
     );
-    let Some(path) = files::save_dialog(
+    let Some(path) = files::choose_save_path(
+        ctx,
         "Save backup",
         &name,
         ("OpenBilling backup", &[FILE_EXTENSION]),
@@ -85,8 +82,11 @@ fn create_backup(ctx: &Rc<Ctx>) {
         Ok(m) => {
             let _ = ctx.with_conn(|c| set_setting(c, LAST_BACKUP_KEY, &now_string()));
             ctx.success(format!(
-                "Backup saved: {} orders, {} invoices, {} customers",
-                m.orders, m.invoices, m.customers
+                "Backup saved to {}: {} orders, {} invoices, {} customers",
+                files::saved_label(ctx, &path),
+                m.orders,
+                m.invoices,
+                m.customers
             ));
             refresh(ctx);
         }
@@ -95,11 +95,15 @@ fn create_backup(ctx: &Rc<Ctx>) {
 }
 
 fn restore_backup(ctx: &Rc<Ctx>) {
-    let Some(path) =
-        files::open_dialog("Restore backup", ("OpenBilling backup", &[FILE_EXTENSION]))
-    else {
-        return;
-    };
+    files::pick(
+        ctx,
+        "Restore backup",
+        ("OpenBilling backup", &[FILE_EXTENSION]),
+        confirm_restore,
+    );
+}
+
+fn confirm_restore(ctx: &Rc<Ctx>, path: std::path::PathBuf) {
     let manifest = match backup::inspect_backup(&path) {
         Ok(m) => m,
         Err(e) => return ctx.fail(&e),

@@ -565,17 +565,7 @@ fn save_snapshot(ctx: &Ctx, snap: &invoices::InvoiceSnapshot) {
         Ok(b) => b,
         Err(e) => return ctx.fail(&e),
     };
-    let Some(path) = files::save_dialog(
-        "Save invoice PDF",
-        &snap.file_name(),
-        ("PDF document", &["pdf"]),
-    ) else {
-        return;
-    };
-    match std::fs::write(&path, bytes) {
-        Ok(()) => ctx.success(format!("Saved {}", files::display_name(&path))),
-        Err(e) => ctx.toast("error", format!("Couldn't save the file: {e}")),
-    }
+    files::save(ctx, "Save invoice PDF", &snap.file_name(), ("PDF document", &["pdf"]), &bytes);
 }
 
 pub fn download_version(ctx: &Rc<Ctx>, version_id: i64) {
@@ -590,11 +580,7 @@ fn open_version(ctx: &Rc<Ctx>, version_id: i64) {
         .with_conn(|c| invoices::load_version(c, version_id))
         .and_then(|snap| pdf::render_invoice(&snap).map(|b| (snap, b)));
     match result {
-        Ok((snap, bytes)) => {
-            if let Err(e) = files::open_temp(&snap.file_name(), &bytes) {
-                ctx.toast("error", format!("Couldn't open the PDF: {e}"));
-            }
-        }
+        Ok((snap, bytes)) => files::preview(ctx, &snap.file_name(), &bytes),
         Err(e) => ctx.fail(&e),
     }
 }

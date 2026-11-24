@@ -3,7 +3,8 @@ import { Theme, Icons } from "../theme.slint";
 import {
     AppState, AuthState, DashboardState, OrdersState, OrderForm, OrderView, InvoicesState,
     CustomersState, TemplatesState, TemplateForm, ReportsState, SettingsState, Api,
-    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal
+    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal,
+    FilePicker, FileRow
 } from "../globals.slint";
 import { Btn, Icon, Modal } from "../components/widgets.slint";
 import { AuthScreen } from "../screens/auth.slint";
@@ -18,7 +19,8 @@ import { SettingsPage } from "../screens/settings.slint";
 export {
     Theme, AppState, AuthState, DashboardState, OrdersState, OrderForm, OrderView, InvoicesState,
     CustomersState, TemplatesState, TemplateForm, ReportsState, SettingsState, Api,
-    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal
+    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal,
+    FilePicker, FileRow
 }
 
 struct NavEntry {
@@ -333,6 +335,79 @@ component ConfirmDialog inherits Modal {
     }
 }
 
+component FilePickerDialog inherits Modal {
+    title: FilePicker.title;
+    sub: "Files in the OpenBilling folder";
+    card-width: 520px;
+    close => { Api.file-picker-cancel(); }
+
+    if FilePicker.files.length == 0: VerticalLayout {
+        spacing: 8px;
+        Text {
+            text: FilePicker.empty-text;
+            color: Theme.text-muted;
+            wrap: word-wrap;
+        }
+        Text {
+            text: AppState.export-folder;
+            color: Theme.text-subtle;
+            font-size: Theme.font-xs;
+            wrap: char-wrap;
+        }
+    }
+
+    if FilePicker.files.length > 0: Flickable {
+        height: min(360px, list.preferred-height);
+        content-height: list.preferred-height;
+        list := VerticalLayout {
+            width: parent.width;
+            for f[i] in FilePicker.files: Rectangle {
+                height: 58px;
+                border-radius: Theme.radius-sm;
+                background: ta.pressed ? Theme.primary-soft-2 : (ta.has-hover ? Theme.primary-soft : transparent);
+                ta := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Api.file-picked(i); }
+                }
+                HorizontalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    spacing: 12px;
+                    VerticalLayout {
+                        alignment: center;
+                        Rectangle {
+                            width: 36px;
+                            height: 36px;
+                            border-radius: 8px;
+                            background: Theme.primary-soft;
+                            Icon {
+                                source: Icons.invoice;
+                                colorize: Theme.primary;
+                                size: 18px;
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 2px;
+                        Text { text: f.name; color: Theme.text; font-weight: 600; overflow: elide; }
+                        Text { text: f.detail; color: Theme.text-muted; font-size: Theme.font-xs; }
+                    }
+                }
+            }
+        }
+    }
+
+    HorizontalLayout {
+        alignment: end;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.file-picker-cancel(); }
+        }
+    }
+}
+
 component Shell inherits Rectangle {
     background: Theme.bg;
     HorizontalLayout {
@@ -367,22 +442,95 @@ export component MainWindow inherits Window {
     background: Theme.bg;
     default-font-size: 14px;
 
+    // Copies text with Slint's clipboard (works on desktop, Android and iOS).
+    callback copy-to-clipboard(string);
+    copy-to-clipboard(text) => {
+        clip.text = text;
+        clip.select-all();
+        clip.copy();
+        clip.text = "";
+    }
+
     init => {
         Palette.color-scheme = ColorScheme.light;
         Theme.compact = self.width < 880px;
     }
     changed width => { Theme.compact = self.width < 880px; }
 
-    if AppState.screen == "auth": AuthScreen { }
-    if AppState.screen == "app": Shell { }
+    // Phones: keep content out of the status bar / notch / gesture bar, and
+    // shrink it while the on-screen keyboard is open so fields stay reachable.
+    property <length> inset-top: self.safe-area-insets.top;
+    property <length> inset-bottom: self.safe-area-insets.bottom;
+    property <length> keyboard: self.virtual-keyboard-size.height > 0
+        ? max(0px, self.height - self.virtual-keyboard-position.y - self.inset-bottom)
+        : 0px;
 
-    if CustomersState.dialog-visible: CustomerDialog { }
-    if OrderView.generate-visible: GenerateInvoiceDialog { }
-    if AppState.confirm-visible: ConfirmDialog { }
+    // Status-bar backdrop. Always dark: Android draws light status-bar icons.
+    Rectangle {
+        y: 0;
+        height: root.inset-top;
+        background: Theme.nav-bg;
+    }
 
-    if AppState.toast-visible: Toast {
-        max-width-avail: min(560px, parent.width - 32px);
-        x: (parent.width - self.width) / 2;
-        y: parent.height - self.height - (Theme.compact && AppState.screen == "app" ? 78px : 24px);
+    // Root key handler. Its capture phase sees every key before the focused
+    // element, so the Android Back button navigates inside the app instead of
+    // closing it (only unhandled Back presses leave the app).
+    // Gives keyboard focus back to the root handler (after a page change or a
+    // dialog closes) so Back keeps working.
+    public function reclaim-focus() { keys.focus(); }
+    property <bool> any-dialog: CustomersState.dialog-visible || OrderView.generate-visible
+        || FilePicker.visible || AppState.confirm-visible;
+    changed any-dialog => { if !self.any-dialog { keys.focus(); } }
+    changed page-key => { keys.focus(); }
+    property <string> page-key: AppState.screen == "app" ? AppState.page : "";
+
+    keys := FocusScope {
+        focus-on-click: false;
+        init => { self.focus(); }
+        property <bool> back-down: false;
+        capture-key-pressed(e) => {
+            if e.text == Key.Back {
+                self.back-down = Api.back();
+                return self.back-down ? accept : reject;
+            }
+            reject
+        }
+        capture-key-released(e) => {
+            if e.text == Key.Back && self.back-down {
+                self.back-down = false;
+                return accept;
+            }
+            reject
+        }
+
+        safe := Rectangle {
+            x: root.safe-area-insets.left;
+            y: root.inset-top;
+            width: root.width - root.safe-area-insets.left - root.safe-area-insets.right;
+            height: root.height - root.inset-top - root.inset-bottom - root.keyboard;
+
+            if AppState.screen == "auth": AuthScreen { }
+            if AppState.screen == "app": Shell { }
+
+            if CustomersState.dialog-visible: CustomerDialog { }
+            if OrderView.generate-visible: GenerateInvoiceDialog { }
+            if FilePicker.visible: FilePickerDialog { }
+            if AppState.confirm-visible: ConfirmDialog { }
+
+            if AppState.toast-visible: Toast {
+                max-width-avail: min(560px, parent.width - 32px);
+                x: (parent.width - self.width) / 2;
+                y: parent.height - self.height - (Theme.compact && AppState.screen == "app" ? 78px : 24px);
+            }
+        }
+    }
+
+    clip := TextInput {
+        x: 0;
+        y: 0;
+        width: 1px;
+        height: 1px;
+        opacity: 0;
+        enabled: false;
     }
 }

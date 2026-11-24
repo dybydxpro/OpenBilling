@@ -1,6 +1,6 @@
 import { ListView, LineEdit } from "std-widgets.slint";
 import { Theme, Icons } from "../theme.slint";
-import { Api, OrdersState, OrderForm, OrderView, OrderRow, ItemRow, VersionRow } from "../globals.slint";
+import { Api, AppState, OrdersState, OrderForm, OrderView, OrderRow, ItemRow, VersionRow } from "../globals.slint";
 import {
     Btn, Card, Field, AreaField, SelectField, StatusPill, PageHeader, EmptyState, SearchBox, Chip,
     PageScroll, Modal, ErrorBanner, InfoBanner, Divider, Icon, Label, SectionTitle
@@ -538,7 +538,7 @@ component VersionRowView inherits Rectangle {
             alignment: center;
             HorizontalLayout {
                 spacing: 2px;
-                Btn {
+                if !AppState.mobile: Btn {
                     kind: "ghost";
                     small: true;
                     icon: Icons.open;
@@ -593,6 +593,7 @@ component OrderItemsCard inherits Card {
 
 component OrderSideCards inherits VerticalLayout {
     spacing: 18px;
+    alignment: start;
 
     Card {
         SectionTitle { text: "Details"; }
@@ -655,10 +656,8 @@ component OrderSideCards inherits VerticalLayout {
         }
         if OrderView.invoice-no == "": VerticalLayout {
             spacing: 12px;
-            Text {
+            InfoBanner {
                 text: "Generate a PDF invoice from this order. If you edit the order later, generate again to create a new version — earlier versions are kept.";
-                color: Theme.text-muted;
-                wrap: word-wrap;
             }
             HorizontalLayout {
                 alignment: start;
@@ -743,11 +742,8 @@ export component OrderViewPage inherits PageScroll {
             OrderSideCards { }
         }
     }
-    if Theme.compact: VerticalLayout {
-        spacing: 18px;
-        OrderSideCards { }
-        OrderItemsCard { }
-    }
+    if Theme.compact: OrderSideCards { }
+    if Theme.compact: OrderItemsCard { }
 }
 
 export component GenerateInvoiceDialog inherits Modal {

@@ -1,5 +1,5 @@
 import { Theme, Icons } from "../theme.slint";
-import { Api, SettingsState } from "../globals.slint";
+import { Api, AppState, SettingsState } from "../globals.slint";
 import {
     Btn, Card, Field, PageHeader, PageScroll, SectionTitle, ErrorBanner, InfoBanner, Icon, Label, Divider
 } from "../components/widgets.slint";
@@ -75,6 +75,18 @@ export component SettingsPage inherits PageScroll {
         InfoBanner {
             tone: "warn";
             text: "Backup files are not encrypted. Keep them somewhere private, such as an encrypted drive or a trusted cloud folder.";
+        }
+        if AppState.mobile: VerticalLayout {
+            spacing: 6px;
+            InfoBanner {
+                text: "Backups, invoices and exports are saved in the OpenBilling folder below. To restore or import, copy the file into that folder first.";
+            }
+            Text {
+                text: AppState.export-folder;
+                font-size: Theme.font-xs;
+                color: Theme.text-muted;
+                wrap: char-wrap;
+            }
         }
     }
 
@@ -187,7 +199,7 @@ export component SettingsPage inherits PageScroll {
                     overflow: elide;
                 }
             }
-            Btn {
+            if !AppState.mobile: Btn {
                 text: Theme.compact ? "" : "Open folder";
                 icon: Icons.open;
                 kind: "secondary";

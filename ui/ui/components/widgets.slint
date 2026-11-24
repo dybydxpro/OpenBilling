@@ -106,15 +106,20 @@ export component SectionTitle inherits HorizontalLayout {
     in property <string> sub;
     spacing: 8px;
     VerticalLayout {
-        spacing: 2px;
+        spacing: root.sub == "" ? 0px : 2px;
+        horizontal-stretch: 1;
         Text {
             text: root.text;
             font-size: Theme.font-lg;
             font-weight: 700;
             color: Theme.text;
         }
-        if root.sub != "": Text {
+        // Always instantiated (not `if`) so the layout re-measures when the
+        // subtitle arrives after the card was first laid out.
+        Text {
             text: root.sub;
+            visible: root.sub != "";
+            height: root.sub == "" ? 0px : self.preferred-height;
             font-size: Theme.font-sm;
             color: Theme.text-muted;
             wrap: word-wrap;
@@ -452,6 +457,7 @@ export component PageScroll inherits ScrollView {
         width: min(root.visible-width, root.max-content-width);
         padding: root.pad;
         spacing: 18px;
+        alignment: start;
         @children
     }
 }

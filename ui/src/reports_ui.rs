@@ -203,7 +203,7 @@ fn run(ctx: &Rc<Ctx>) {
                     .map(|d| d.format("%b %y").to_string())
                     .unwrap_or_else(|_| ym.clone())
                     .into(),
-                value: compact_money(*v, &sym).into(),
+                value: compact_money(*v, "").into(),
                 ratio: *v as f32 / max as f32,
             })
             .collect(),
@@ -243,19 +243,7 @@ fn export(ctx: &Rc<Ctx>) {
         Err(e) => return ctx.fail(&e),
     };
     let name = format!("OpenBilling-report-{}.csv", Local::now().format("%Y-%m-%d"));
-    let Some(path) = files::save_dialog("Export report", &name, ("CSV spreadsheet", &["csv"]))
-    else {
-        return;
-    };
     // BOM so spreadsheet apps detect UTF-8.
     let csv = format!("\u{feff}{}", reports::to_csv(&report));
-    match std::fs::write(&path, csv) {
-        Ok(()) => ctx.success(format!(
-            "Exported {} order{} to {}",
-            report.orders.len(),
-            if report.orders.len() == 1 { "" } else { "s" },
-            files::display_name(&path)
-        )),
-        Err(e) => ctx.toast("error", format!("Couldn't save the file: {e}")),
-    }
+    files::save(ctx, "Export report", &name, ("CSV spreadsheet", &["csv"]), csv.as_bytes());
 }

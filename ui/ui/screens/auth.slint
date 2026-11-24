@@ -11,6 +11,7 @@ component PinPad inherits VerticalLayout {
     fs := FocusScope {
         init => { self.focus(); }
         key-pressed(e) => {
+            if e.text == Key.Back { return reject; }
             if e.text == Key.Backspace { Api.pin-key("back"); return accept; }
             if e.text == Key.Escape { Api.pin-key("clear"); return accept; }
             Api.pin-key(e.text);

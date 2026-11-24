@@ -123,7 +123,7 @@ pub fn refresh(ctx: &Rc<Ctx>) {
             .map(|(label, v)| Bar {
                 label: label.as_str().into(),
                 value: if *v > 0 {
-                    compact_money(*v, &sym)
+                    compact_money(*v, "")
                 } else {
                     String::new()
                 }

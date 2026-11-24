@@ -33,8 +33,9 @@ device.
 | Crate      | Purpose |
 |------------|---------|
 | `core/`    | All business logic, with no UI code: `auth`, `templates`, `customers`, `orders`, `invoices`, `pdf`, `reports`, `backup`. Front-ends hold an `app_core::App` and call these modules. |
-| `desktop/` | Slint UI (`ui/`) and the Rust controllers that connect it to `core` (`src/*_ui.rs`). |
-| `mobile/`  | Placeholder for the Android/iOS entry point (see *Platforms*). |
+| `ui/`      | The Slint UI (`ui/ui/`) and the Rust controllers that connect it to `core` (`ui/src/*_ui.rs`), shared by every platform. `files.rs` holds the platform differences: native dialogs on desktop, an export folder plus an in-app picker on mobile. |
+| `desktop/` | Windows, macOS and Linux launcher (`cargo run -p open-billing`). |
+| `mobile/`  | Android and iOS entry points and packaging. See [mobile/README.md](mobile/README.md). |
 
 Money is stored as integer cents. Order totals are computed as follows:
 subtotal − discount, then tax on the remainder.
@@ -99,11 +100,11 @@ defaults shown above, and unknown elements are ignored.
 - **Windows, macOS, Linux:** supported by the desktop crate (Slint winit
   backend, native file dialogs through `rfd`). Only Windows has been run and
   checked so far.
-- **Android and iOS:** `core` is platform-independent, but the mobile app is
-  not wired up yet. The next step is to move the Slint UI and controllers into
-  a shared crate, start it from `mobile/` through Slint's Android and iOS
-  backends, and replace `rfd` dialogs with platform share/pick sheets. The UI
-  already has a phone-width layout.
+- **Android:** built with `cargo apk` and run on the Android emulator. See
+  [mobile/README.md](mobile/README.md). Files go through an OpenBilling folder
+  instead of a system share sheet.
+- **iOS:** an XcodeGen project is included in `mobile/ios`, but it hasn't been
+  built yet because that needs a Mac with Xcode.
 - PDFs use the built-in PDF fonts, which cover Latin-1 only. Other scripts
   (for example Sinhala, Tamil or the ₹ sign) print as `?` until a TTF font is
   embedded.

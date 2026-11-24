@@ -4,10 +4,10 @@ use app_core::orders::OrderStatus;
 use app_core::{App, CoreError, templates};
 use slint::{ComponentHandle, Timer, TimerMode, VecModel, Weak};
 use std::cell::RefCell;
-use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
 
+use crate::files::{PendingPick, Platform};
 use crate::{AppState, ItemRow, MainWindow};
 
 #[derive(Default)]
@@ -29,7 +29,7 @@ type ConfirmAction = Box<dyn FnOnce(&Rc<Ctx>)>;
 pub struct Ctx {
     pub app: RefCell<App>,
     pub ui: Weak<MainWindow>,
-    pub data_dir: PathBuf,
+    pub platform: Platform,
 
     // Auth flow (kept only in memory, cleared on every transition)
     pub pin: RefCell<String>,
@@ -45,15 +45,15 @@ pub struct Ctx {
     pub report_customer_ids: RefCell<Vec<i64>>,
     pub pending_confirm: RefCell<Option<ConfirmAction>>,
     pub toast_timer: Timer,
-    pub clipboard: RefCell<Option<arboard::Clipboard>>,
+    pub pending_pick: RefCell<Option<PendingPick>>,
 }
 
 impl Ctx {
-    pub fn new(app: App, ui: &MainWindow, data_dir: PathBuf) -> Rc<Self> {
+    pub fn new(app: App, ui: &MainWindow, platform: Platform) -> Rc<Self> {
         Rc::new(Self {
             app: RefCell::new(app),
             ui: ui.as_weak(),
-            data_dir,
+            platform,
             pin: RefCell::default(),
             first_pin: RefCell::default(),
             reset_key: RefCell::default(),
@@ -64,7 +64,7 @@ impl Ctx {
             report_customer_ids: RefCell::default(),
             pending_confirm: RefCell::default(),
             toast_timer: Timer::default(),
-            clipboard: RefCell::default(),
+            pending_pick: RefCell::default(),
         })
     }
 
@@ -130,15 +130,10 @@ impl Ctx {
         *self.pending_confirm.borrow_mut() = Some(Box::new(action));
     }
 
+    /// Uses Slint's own clipboard, which also works on Android and iOS.
     pub fn copy_text(&self, text: &str) {
-        let mut slot = self.clipboard.borrow_mut();
-        if slot.is_none() {
-            *slot = arboard::Clipboard::new().ok();
-        }
-        match slot.as_mut().map(|c| c.set_text(text.to_string())) {
-            Some(Ok(())) => self.success("Copied to clipboard"),
-            _ => self.toast("error", "Couldn't access the clipboard."),
-        }
+        self.ui().invoke_copy_to_clipboard(text.into());
+        self.success("Copied to clipboard");
     }
 }
 
