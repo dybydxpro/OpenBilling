@@ -1,0 +1,151 @@
+import { Theme, Icons } from "../theme.slint";
+import { Api, ReportsState } from "../globals.slint";
+import {
+    Btn, Card, Field, SelectField, KpiCard, PageHeader, PageScroll, SectionTitle, ErrorBanner, Chip
+} from "../components/widgets.slint";
+import { BarChart, BreakdownList } from "dashboard.slint";
+import { OrderRowView, OrdersHeader } from "orders.slint";
+
+export component ReportsPage inherits PageScroll {
+    pad: Theme.compact ? 16px : 24px;
+
+    PageHeader {
+        title: "Reports";
+        sub: ReportsState.range-label;
+        Btn {
+            text: Theme.compact ? "" : "Export CSV";
+            icon: Icons.download;
+            kind: "secondary";
+            clicked => { Api.export-report(); }
+        }
+    }
+
+    Card {
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            for p in [
+                { key: "this-month", label: "This month" },
+                { key: "last-month", label: "Last month" },
+                { key: "this-year", label: "This year" },
+                { key: "all", label: "All time" },
+            ]: Chip {
+                text: p.label;
+                clicked => { Api.report-preset(p.key); }
+            }
+        }
+        if !Theme.compact: HorizontalLayout {
+            spacing: 12px;
+            Field { label: "From"; placeholder: "YYYY-MM-DD"; text <=> ReportsState.from; accepted => { Api.run-report(); } }
+            Field { label: "To"; placeholder: "YYYY-MM-DD"; text <=> ReportsState.to; accepted => { Api.run-report(); } }
+            SelectField { label: "Status"; model: ReportsState.statuses; current-index <=> ReportsState.status-index; }
+            SelectField { label: "Customer"; model: ReportsState.customers; current-index <=> ReportsState.customer-index; }
+            VerticalLayout {
+                alignment: end;
+                Btn {
+                    text: "Apply";
+                    icon: Icons.filter;
+                    clicked => { Api.run-report(); }
+                }
+            }
+        }
+        if Theme.compact: VerticalLayout {
+            spacing: 12px;
+            HorizontalLayout {
+                spacing: 10px;
+                Field { label: "From"; placeholder: "YYYY-MM-DD"; text <=> ReportsState.from; }
+                Field { label: "To"; placeholder: "YYYY-MM-DD"; text <=> ReportsState.to; }
+            }
+            SelectField { label: "Status"; model: ReportsState.statuses; current-index <=> ReportsState.status-index; }
+            SelectField { label: "Customer"; model: ReportsState.customers; current-index <=> ReportsState.customer-index; }
+            Btn {
+                text: "Apply filters";
+                icon: Icons.filter;
+                clicked => { Api.run-report(); }
+            }
+        }
+        ErrorBanner { text: ReportsState.error; }
+    }
+
+    if !Theme.compact: VerticalLayout {
+        spacing: 16px;
+        HorizontalLayout {
+            spacing: 16px;
+            for k in ReportsState.kpis: KpiCard {
+                label: k.label;
+                value: k.value;
+                hint: k.hint;
+                tone: k.tone;
+            }
+        }
+        HorizontalLayout {
+            spacing: 16px;
+            for k in ReportsState.kpis-2: KpiCard {
+                label: k.label;
+                value: k.value;
+                hint: k.hint;
+                tone: k.tone;
+            }
+        }
+    }
+    if Theme.compact: VerticalLayout {
+        spacing: 12px;
+        for k in ReportsState.kpis: KpiCard {
+            label: k.label;
+            value: k.value;
+            hint: k.hint;
+            tone: k.tone;
+        }
+        for k in ReportsState.kpis-2: KpiCard {
+            label: k.label;
+            value: k.value;
+            hint: k.hint;
+            tone: k.tone;
+        }
+    }
+
+    if !Theme.compact: HorizontalLayout {
+        spacing: 16px;
+        Card {
+            horizontal-stretch: 3;
+            SectionTitle { text: "Sales by month"; }
+            BarChart { bars: ReportsState.by-month; }
+        }
+        Card {
+            horizontal-stretch: 2;
+            SectionTitle { text: "Top customers"; }
+            BreakdownList { rows: ReportsState.by-customer; empty-text: "No sales in this range."; }
+        }
+    }
+    if Theme.compact: VerticalLayout {
+        spacing: 16px;
+        Card {
+            SectionTitle { text: "Sales by month"; }
+            BarChart { bars: ReportsState.by-month; chart-height: 120px; }
+        }
+        Card {
+            SectionTitle { text: "Top customers"; }
+            BreakdownList { rows: ReportsState.by-customer; empty-text: "No sales in this range."; }
+        }
+    }
+
+    Card {
+        pad: 0px;
+        VerticalLayout {
+            padding: 20px;
+            padding-bottom: 8px;
+            SectionTitle {
+                text: "Orders";
+                sub: ReportsState.rows.length == 0 ? "No orders match these filters." : ReportsState.rows.length + " shown";
+            }
+        }
+        if ReportsState.rows.length > 0: VerticalLayout {
+            padding-bottom: 6px;
+            OrdersHeader { }
+            for row in ReportsState.rows: OrderRowView {
+                data: row;
+                clicked => { Api.open-order(row.id); }
+            }
+        }
+    }
+}

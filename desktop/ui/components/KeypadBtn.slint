@@ -1,0 +1,39 @@
+import { Theme } from "../theme.slint";
+
+export component KeypadBtn inherits Rectangle {
+    in property <string> text;
+    in property <image> icon;
+    in property <bool> subtle: false;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    min-width: 64px;
+    preferred-width: 84px;
+    height: 52px;
+    border-radius: 12px;
+    opacity: enabled ? 1.0 : 0.5;
+    background: ta.pressed ? Theme.primary-soft-2 : ta.has-hover ? Theme.primary-soft : (subtle ? transparent : Theme.neutral-soft);
+    animate background { duration: 90ms; }
+
+    accessible-role: button;
+    accessible-label: root.text != "" ? root.text : "Delete digit";
+    accessible-action-default => { root.clicked(); }
+
+    ta := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    if root.text != "": Text {
+        text: root.text;
+        color: Theme.text;
+        font-size: 22px;
+        font-weight: 600;
+    }
+    if root.text == "": Image {
+        source: root.icon;
+        colorize: Theme.text-muted;
+        width: 24px;
+        height: 24px;
+    }
+}

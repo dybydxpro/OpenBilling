@@ -1,7 +1,8 @@
 [package]
-name = "slint-rust-template"
+name = "open-billing"
 version = "0.1.0"
 edition = "2024"
+description = "Open Billing desktop application"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -9,11 +10,14 @@ edition = "2024"
 
 [dependencies]
 app-core = { path = "../core" }
+arboard = "3.7.0"
+chrono = "0.4.45"
+directories = "6.0.0"
+open = "5.4.5"
+rfd = "0.18.0"
 slint = "1.18.1"
 
 [build-dependencies]
 slint-build = "1.18.1"
+winres = "0.1"
 
-[profile.release]
-codegen-units = 1
-lto = true

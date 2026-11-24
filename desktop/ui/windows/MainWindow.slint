@@ -1,0 +1,388 @@
+import { Palette } from "std-widgets.slint";
+import { Theme, Icons } from "../theme.slint";
+import {
+    AppState, AuthState, DashboardState, OrdersState, OrderForm, OrderView, InvoicesState,
+    CustomersState, TemplatesState, TemplateForm, ReportsState, SettingsState, Api,
+    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal
+} from "../globals.slint";
+import { Btn, Icon, Modal } from "../components/widgets.slint";
+import { AuthScreen } from "../screens/auth.slint";
+import { DashboardPage } from "../screens/dashboard.slint";
+import { OrdersPage, OrderEditPage, OrderViewPage, GenerateInvoiceDialog } from "../screens/orders.slint";
+import { InvoicesPage } from "../screens/invoices.slint";
+import { CustomersPage, CustomerDialog } from "../screens/customers.slint";
+import { TemplatesPage, TemplateEditPage } from "../screens/templates.slint";
+import { ReportsPage } from "../screens/reports.slint";
+import { SettingsPage } from "../screens/settings.slint";
+
+export {
+    Theme, AppState, AuthState, DashboardState, OrdersState, OrderForm, OrderView, InvoicesState,
+    CustomersState, TemplatesState, TemplateForm, ReportsState, SettingsState, Api,
+    OrderRow, CustomerRow, TemplateRow, InvoiceRow, VersionRow, ItemRow, Kpi, Bar, NameTotal
+}
+
+struct NavEntry {
+    key: string,
+    label: string,
+    short: string,
+    icon: image,
+}
+
+global Nav {
+    out property <[NavEntry]> entries: [
+        { key: "dashboard", label: "Dashboard", short: "Home", icon: Icons.dashboard },
+        { key: "orders", label: "Orders", short: "Orders", icon: Icons.orders },
+        { key: "invoices", label: "Invoices", short: "Invoices", icon: Icons.invoice },
+        { key: "customers", label: "Customers", short: "Clients", icon: Icons.customers },
+        { key: "templates", label: "Templates", short: "Templates", icon: Icons.template },
+        { key: "reports", label: "Reports", short: "Reports", icon: Icons.reports },
+        { key: "settings", label: "Backup & settings", short: "Settings", icon: Icons.settings },
+    ];
+
+    public pure function is-active(key: string) -> bool {
+        if key == AppState.page { return true; }
+        if key == "orders" && (AppState.page == "order-edit" || AppState.page == "order-view") { return true; }
+        if key == "templates" && AppState.page == "template-edit" { return true; }
+        return false;
+    }
+}
+
+component SideNavItem inherits Rectangle {
+    in property <NavEntry> entry;
+    property <bool> active: Nav.is-active(entry.key);
+
+    height: 42px;
+    border-radius: 8px;
+    background: active ? Theme.primary : (ta.has-hover ? Theme.nav-active : transparent);
+    animate background { duration: 120ms; }
+    accessible-role: tab;
+    accessible-label: entry.label;
+    accessible-action-default => { Api.navigate(root.entry.key); }
+
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { Api.navigate(root.entry.key); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        spacing: 12px;
+        VerticalLayout {
+            alignment: center;
+            Icon {
+                source: root.entry.icon;
+                colorize: root.active ? white : Theme.nav-text;
+                size: 19px;
+            }
+        }
+        Text {
+            text: root.entry.label;
+            color: root.active ? white : Theme.nav-text;
+            font-size: Theme.font-md;
+            font-weight: root.active ? 700 : 500;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component Sidebar inherits Rectangle {
+    width: 236px;
+    background: Theme.nav-bg;
+
+    VerticalLayout {
+        padding: 14px;
+        spacing: 4px;
+
+        HorizontalLayout {
+            padding: 6px;
+            padding-bottom: 22px;
+            spacing: 10px;
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+                background: @linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+                Icon {
+                    source: Icons.invoice;
+                    colorize: white;
+                    size: 20px;
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 1px;
+                Text {
+                    text: "OpenBilling";
+                    color: white;
+                    font-size: Theme.font-lg;
+                    font-weight: 700;
+                }
+                Text {
+                    text: AppState.business-name;
+                    color: Theme.nav-text;
+                    font-size: Theme.font-xs;
+                    overflow: elide;
+                }
+            }
+        }
+
+        for entry in Nav.entries: SideNavItem { entry: entry; }
+
+        Rectangle { vertical-stretch: 1; }
+
+        lock := Rectangle {
+            height: 42px;
+            border-radius: 8px;
+            background: lock-ta.has-hover ? Theme.nav-active : transparent;
+            lock-ta := TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Api.lock(); }
+            }
+            HorizontalLayout {
+                padding-left: 12px;
+                spacing: 12px;
+                VerticalLayout {
+                    alignment: center;
+                    Icon {
+                        source: Icons.lock;
+                        colorize: Theme.nav-text;
+                        size: 19px;
+                    }
+                }
+                Text {
+                    text: "Lock";
+                    color: Theme.nav-text;
+                    font-size: Theme.font-md;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+component TopBar inherits Rectangle {
+    height: 56px;
+    background: Theme.nav-bg;
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 8px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 30px;
+                height: 30px;
+                border-radius: 8px;
+                background: Theme.primary;
+                Icon {
+                    source: Icons.invoice;
+                    colorize: white;
+                    size: 17px;
+                }
+            }
+        }
+        Text {
+            text: AppState.business-name;
+            color: white;
+            font-size: Theme.font-lg;
+            font-weight: 700;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            overflow: elide;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 40px;
+                height: 40px;
+                border-radius: 8px;
+                background: top-lock.has-hover ? Theme.nav-active : transparent;
+                top-lock := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Api.lock(); }
+                }
+                Icon {
+                    source: Icons.lock;
+                    colorize: Theme.nav-text;
+                    size: 20px;
+                }
+            }
+        }
+    }
+}
+
+component BottomNav inherits Rectangle {
+    height: 62px;
+    background: Theme.surface;
+    Rectangle { y: 0; height: 1px; background: Theme.border; }
+    HorizontalLayout {
+        padding-top: 4px;
+        for entry in Nav.entries: Rectangle {
+            horizontal-stretch: 1;
+            property <bool> active: Nav.is-active(entry.key);
+            TouchArea {
+                mouse-cursor: pointer;
+                clicked => { Api.navigate(entry.key); }
+            }
+            VerticalLayout {
+                alignment: center;
+                spacing: 3px;
+                HorizontalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 40px;
+                        height: 26px;
+                        border-radius: 13px;
+                        background: active ? Theme.primary-soft : transparent;
+                        Icon {
+                            source: entry.icon;
+                            colorize: active ? Theme.primary : Theme.text-subtle;
+                            size: 19px;
+                        }
+                    }
+                }
+                Text {
+                    text: entry.short;
+                    font-size: 10px;
+                    font-weight: active ? 700 : 500;
+                    color: active ? Theme.primary : Theme.text-muted;
+                    horizontal-alignment: center;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
+component Toast inherits Rectangle {
+    property <color> tone: AppState.toast-kind == "error" ? Theme.danger : (AppState.toast-kind == "success" ? Theme.success : Theme.primary);
+    in property <length> max-width-avail: 600px;
+    width: min(root.max-width-avail, max(280px, t.preferred-width + 90px));
+    height: max(48px, t.preferred-height + 26px);
+    border-radius: Theme.radius;
+    background: Theme.text;
+    drop-shadow-blur: 18px;
+    drop-shadow-color: #0f172a40;
+    drop-shadow-offset-y: 4px;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 6px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 22px;
+                height: 22px;
+                border-radius: 11px;
+                background: root.tone;
+                Icon {
+                    source: AppState.toast-kind == "error" ? Icons.alert : (AppState.toast-kind == "success" ? Icons.check : Icons.info);
+                    colorize: white;
+                    size: 13px;
+                }
+            }
+        }
+        t := Text {
+            text: AppState.toast-text;
+            color: white;
+            font-size: Theme.font-md;
+            wrap: word-wrap;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: 6px;
+                background: close-ta.has-hover ? #ffffff1f : transparent;
+                close-ta := TouchArea {
+                    mouse-cursor: pointer;
+                    clicked => { Api.dismiss-toast(); }
+                }
+                Icon {
+                    source: Icons.close;
+                    colorize: #cbd5e1;
+                    size: 15px;
+                }
+            }
+        }
+    }
+}
+
+component ConfirmDialog inherits Modal {
+    title: AppState.confirm-title;
+    sub: AppState.confirm-message;
+    card-width: 460px;
+    close => { Api.confirm-cancelled(); }
+
+    HorizontalLayout {
+        alignment: end;
+        spacing: 8px;
+        Btn {
+            text: "Cancel";
+            kind: "secondary";
+            clicked => { Api.confirm-cancelled(); }
+        }
+        Btn {
+            text: AppState.confirm-action-label;
+            kind: AppState.confirm-danger ? "danger" : "primary";
+            clicked => { Api.confirm-accepted(); }
+        }
+    }
+}
+
+component Shell inherits Rectangle {
+    background: Theme.bg;
+    HorizontalLayout {
+        if !Theme.compact: Sidebar { }
+        VerticalLayout {
+            if Theme.compact: TopBar { }
+            Rectangle {
+                vertical-stretch: 1;
+                if AppState.page == "dashboard": DashboardPage { }
+                if AppState.page == "orders": OrdersPage { }
+                if AppState.page == "order-edit": OrderEditPage { }
+                if AppState.page == "order-view": OrderViewPage { }
+                if AppState.page == "invoices": InvoicesPage { }
+                if AppState.page == "customers": CustomersPage { }
+                if AppState.page == "templates": TemplatesPage { }
+                if AppState.page == "template-edit": TemplateEditPage { }
+                if AppState.page == "reports": ReportsPage { }
+                if AppState.page == "settings": SettingsPage { }
+            }
+            if Theme.compact: BottomNav { }
+        }
+    }
+}
+
+export component MainWindow inherits Window {
+    title: "OpenBilling";
+    icon: @image-url("../../assets/icons/invoice.svg");
+    preferred-width: 1280px;
+    preferred-height: 820px;
+    min-width: 360px;
+    min-height: 560px;
+    background: Theme.bg;
+    default-font-size: 14px;
+
+    init => {
+        Palette.color-scheme = ColorScheme.light;
+        Theme.compact = self.width < 880px;
+    }
+    changed width => { Theme.compact = self.width < 880px; }
+
+    if AppState.screen == "auth": AuthScreen { }
+    if AppState.screen == "app": Shell { }
+
+    if CustomersState.dialog-visible: CustomerDialog { }
+    if OrderView.generate-visible: GenerateInvoiceDialog { }
+    if AppState.confirm-visible: ConfirmDialog { }
+
+    if AppState.toast-visible: Toast {
+        max-width-avail: min(560px, parent.width - 32px);
+        x: (parent.width - self.width) / 2;
+        y: parent.height - self.height - (Theme.compact && AppState.screen == "app" ? 78px : 24px);
+    }
+}
