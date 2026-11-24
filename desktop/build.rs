@@ -8,6 +8,8 @@ fn main() {
             .set("FileDescription", "OpenBilling")
             .set("InternalName", "OpenBilling")
             .set("OriginalFilename", "OpenBilling.exe");
-        resource.compile().expect("Failed to compile Windows resources");
+        resource
+            .compile()
+            .expect("Failed to compile Windows resources");
     }
 }

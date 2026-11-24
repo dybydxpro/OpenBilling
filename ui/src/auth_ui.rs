@@ -46,6 +46,9 @@ pub fn lock(ctx: &Rc<Ctx>) {
     // Drop anything sensitive that may still be on screen.
     let ui = ctx.ui();
     ui.global::<AppState>().set_confirm_visible(false);
+    ui.global::<AppState>().set_more_open(false);
+    ui.global::<crate::FilePicker>().set_visible(false);
+    ctx.pending_pick.borrow_mut().take();
     ui.global::<crate::CustomersState>()
         .set_dialog_visible(false);
     ui.global::<crate::OrderView>().set_generate_visible(false);

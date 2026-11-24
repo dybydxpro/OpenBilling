@@ -55,7 +55,12 @@ impl Platform {
                     .map(|d| d.data_dir().to_path_buf())
                     .unwrap_or_else(|| PathBuf::from("openbilling-data"))
             });
-        Self { data_dir, files: FileAccess::Native, mobile: false, window_size: None }
+        Self {
+            data_dir,
+            files: FileAccess::Native,
+            mobile: false,
+            window_size: None,
+        }
     }
 
     pub fn export_folder(&self) -> Option<&Path> {
@@ -68,7 +73,9 @@ impl Platform {
 }
 
 pub fn display_name(path: &Path) -> String {
-    path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_default()
+    path.file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_default()
 }
 
 /// `name.pdf` -> `name (2).pdf` until the name is free.
@@ -78,8 +85,14 @@ fn unique_path(dir: &Path, file_name: &str) -> PathBuf {
         return candidate;
     }
     let p = Path::new(file_name);
-    let stem = p.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_default();
-    let ext = p.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    let stem = p
+        .file_stem()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+    let ext = p
+        .extension()
+        .map(|e| format!(".{}", e.to_string_lossy()))
+        .unwrap_or_default();
     (2..)
         .map(|n| dir.join(format!("{stem} ({n}){ext}")))
         .find(|p| !p.exists())
@@ -88,7 +101,12 @@ fn unique_path(dir: &Path, file_name: &str) -> PathBuf {
 
 /// Destination for a new file: a save dialog on desktop, a free name in the
 /// export folder on mobile. `None` if the user cancelled.
-pub fn choose_save_path(ctx: &Ctx, title: &str, file_name: &str, filter: Filter) -> Option<PathBuf> {
+pub fn choose_save_path(
+    ctx: &Ctx,
+    title: &str,
+    file_name: &str,
+    filter: Filter,
+) -> Option<PathBuf> {
     Some(match &ctx.platform.files {
         #[cfg(feature = "desktop")]
         FileAccess::Native => {
@@ -96,7 +114,9 @@ pub fn choose_save_path(ctx: &Ctx, title: &str, file_name: &str, filter: Filter)
                 .set_title(title)
                 .set_file_name(file_name)
                 .add_filter(filter.0, filter.1);
-            if let Some(dir) = directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf)) {
+            if let Some(dir) =
+                directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf))
+            {
                 dialog = dialog.set_directory(dir);
             }
             dialog.save_file()?
@@ -123,7 +143,13 @@ pub fn saved_label(ctx: &Ctx, path: &Path) -> String {
 
 /// Saves `bytes` to a user-chosen place and shows a toast. Returns the path,
 /// or `None` if cancelled or failed.
-pub fn save(ctx: &Ctx, title: &str, file_name: &str, filter: Filter, bytes: &[u8]) -> Option<PathBuf> {
+pub fn save(
+    ctx: &Ctx,
+    title: &str,
+    file_name: &str,
+    filter: Filter,
+    bytes: &[u8],
+) -> Option<PathBuf> {
     let path = choose_save_path(ctx, title, file_name, filter)?;
     match std::fs::write(&path, bytes) {
         Ok(()) => {
@@ -138,12 +164,21 @@ pub fn save(ctx: &Ctx, title: &str, file_name: &str, filter: Filter, bytes: &[u8
 }
 
 /// Lets the user choose an existing file, then runs `action` with it.
-pub fn pick(ctx: &Rc<Ctx>, title: &str, filter: Filter, action: impl FnOnce(&Rc<Ctx>, PathBuf) + 'static) {
+pub fn pick(
+    ctx: &Rc<Ctx>,
+    title: &str,
+    filter: Filter,
+    action: impl FnOnce(&Rc<Ctx>, PathBuf) + 'static,
+) {
     match &ctx.platform.files {
         #[cfg(feature = "desktop")]
         FileAccess::Native => {
-            let mut dialog = rfd::FileDialog::new().set_title(title).add_filter(filter.0, filter.1);
-            if let Some(dir) = directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf)) {
+            let mut dialog = rfd::FileDialog::new()
+                .set_title(title)
+                .add_filter(filter.0, filter.1);
+            if let Some(dir) =
+                directories::UserDirs::new().and_then(|u| u.document_dir().map(Path::to_path_buf))
+            {
                 dialog = dialog.set_directory(dir);
             }
             if let Some(path) = dialog.pick_file() {
@@ -176,7 +211,9 @@ pub fn pick(ctx: &Rc<Ctx>, title: &str, filter: Filter, action: impl FnOnce(&Rc<
                         "{} · {}",
                         m.modified()
                             .ok()
-                            .map(|t| chrono::DateTime::<chrono::Local>::from(t).format("%Y-%m-%d %H:%M").to_string())
+                            .map(|t| chrono::DateTime::<chrono::Local>::from(t)
+                                .format("%Y-%m-%d %H:%M")
+                                .to_string())
                             .unwrap_or_default(),
                         human_size(m.len())
                     )
@@ -191,7 +228,12 @@ pub fn pick(ctx: &Rc<Ctx>, title: &str, filter: Filter, action: impl FnOnce(&Rc<
             fp.set_empty_text(
                 format!(
                     "No {} files yet. Copy one into the OpenBilling folder, then try again.",
-                    filter.1.iter().map(|e| format!(".{e}")).collect::<Vec<_>>().join(" / ")
+                    filter
+                        .1
+                        .iter()
+                        .map(|e| format!(".{e}"))
+                        .collect::<Vec<_>>()
+                        .join(" / ")
                 )
                 .into(),
             );
@@ -209,9 +251,10 @@ pub fn picked(ctx: &Rc<Ctx>, index: i32) {
     ctx.ui().global::<FilePicker>().set_visible(false);
     let pending = ctx.pending_pick.borrow_mut().take();
     if let Some(PendingPick { files, action }) = pending
-        && let Some(path) = usize::try_from(index).ok().and_then(|i| files.get(i)) {
-            action(ctx, path.clone());
-        }
+        && let Some(path) = usize::try_from(index).ok().and_then(|i| files.get(i))
+    {
+        action(ctx, path.clone());
+    }
 }
 
 pub fn cancel_pick(ctx: &Ctx) {

@@ -245,5 +245,11 @@ fn export(ctx: &Rc<Ctx>) {
     let name = format!("OpenBilling-report-{}.csv", Local::now().format("%Y-%m-%d"));
     // BOM so spreadsheet apps detect UTF-8.
     let csv = format!("\u{feff}{}", reports::to_csv(&report));
-    files::save(ctx, "Export report", &name, ("CSV spreadsheet", &["csv"]), csv.as_bytes());
+    files::save(
+        ctx,
+        "Export report",
+        &name,
+        ("CSV spreadsheet", &["csv"]),
+        csv.as_bytes(),
+    );
 }

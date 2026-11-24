@@ -73,6 +73,10 @@ fn back(ctx: &Rc<Ctx>) -> bool {
     let ui = ctx.ui();
     let state = ui.global::<AppState>();
 
+    if state.get_more_open() {
+        state.set_more_open(false);
+        return true;
+    }
     if state.get_confirm_visible() {
         ui.global::<Api>().invoke_confirm_cancelled();
         return true;

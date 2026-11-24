@@ -76,17 +76,14 @@ export component SettingsPage inherits PageScroll {
             tone: "warn";
             text: "Backup files are not encrypted. Keep them somewhere private, such as an encrypted drive or a trusted cloud folder.";
         }
-        if AppState.mobile: VerticalLayout {
-            spacing: 6px;
-            InfoBanner {
-                text: "Backups, invoices and exports are saved in the OpenBilling folder below. To restore or import, copy the file into that folder first.";
-            }
-            Text {
-                text: AppState.export-folder;
-                font-size: Theme.font-xs;
-                color: Theme.text-muted;
-                wrap: char-wrap;
-            }
+        if AppState.mobile: InfoBanner {
+            text: "Backups, invoices and exports are saved in the OpenBilling folder below. To restore or import, copy the file into that folder first.";
+        }
+        if AppState.mobile: Text {
+            text: AppState.export-folder;
+            font-size: Theme.font-xs;
+            color: Theme.text-muted;
+            wrap: char-wrap;
         }
     }
 

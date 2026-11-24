@@ -654,19 +654,18 @@ component OrderSideCards inherits VerticalLayout {
             text: "Invoice";
             sub: OrderView.invoice-no == "" ? "Not generated yet" : OrderView.invoice-no + " · " + OrderView.versions.length + (OrderView.versions.length == 1 ? " version" : " versions");
         }
-        if OrderView.invoice-no == "": VerticalLayout {
-            spacing: 12px;
-            InfoBanner {
-                text: "Generate a PDF invoice from this order. If you edit the order later, generate again to create a new version — earlier versions are kept.";
-            }
-            HorizontalLayout {
-                alignment: start;
-                Btn {
-                    text: "Generate invoice";
-                    icon: Icons.invoice;
-                    enabled: OrderView.status != "cancelled";
-                    clicked => { Api.generate-invoice(); }
-                }
+        // Kept as direct children of the card (no wrapping layout): wrapped
+        // text nested one level deeper is under-measured on narrow screens.
+        if OrderView.invoice-no == "": InfoBanner {
+            text: "Generate a PDF invoice from this order. If you edit the order later, generate again to create a new version — earlier versions are kept.";
+        }
+        if OrderView.invoice-no == "": HorizontalLayout {
+            alignment: start;
+            Btn {
+                text: "Generate invoice";
+                icon: Icons.invoice;
+                enabled: OrderView.status != "cancelled";
+                clicked => { Api.generate-invoice(); }
             }
         }
         if OrderView.invoice-no != "": VerticalLayout {

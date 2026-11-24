@@ -25,8 +25,9 @@ device.
 - **Backup and restore.** One `.obbackup` file (a zip with a consistent
   SQLite snapshot and a manifest). Restoring replaces everything, keeps the
   previous database as `openbilling.db.before-restore`, and locks the app.
-- **Responsive UI.** A sidebar layout on wide windows and a bottom-navigation
-  layout below 880px wide.
+- **Responsive UI.** A sidebar on wide windows. Below 880px wide (phones)
+  there is a five-tab bottom bar (Home, Orders, Invoices, Clients, More), and
+  the Android Back button navigates inside the app.
 
 ## Project layout
 

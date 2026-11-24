@@ -565,7 +565,13 @@ fn save_snapshot(ctx: &Ctx, snap: &invoices::InvoiceSnapshot) {
         Ok(b) => b,
         Err(e) => return ctx.fail(&e),
     };
-    files::save(ctx, "Save invoice PDF", &snap.file_name(), ("PDF document", &["pdf"]), &bytes);
+    files::save(
+        ctx,
+        "Save invoice PDF",
+        &snap.file_name(),
+        ("PDF document", &["pdf"]),
+        &bytes,
+    );
 }
 
 pub fn download_version(ctx: &Rc<Ctx>, version_id: i64) {

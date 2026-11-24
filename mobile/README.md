@@ -23,6 +23,12 @@ points and the packaging files.
   | Android  | app internal storage | `Android/data/com.openbilling.app/files/OpenBilling` (open it with a USB connection or `adb pull`) |
   | iOS      | `Library/Application Support/OpenBilling` | Files app → On My iPhone → OpenBilling |
 
+- **Navigation:** on phone-width screens a bottom tab bar replaces the
+  sidebar. It has five tabs (Home, Orders, Invoices, Clients, More), and More
+  opens a sheet with Templates, Reports, Backup & settings and Lock.
+- **Android Back button:** Back closes the open sheet or dialog first, then
+  steps back a page (an order goes back to Orders, other pages go back to
+  Home). Only Back on Home or on the sign-in screen leaves the app.
 - **Layout:** the UI keeps clear of the status bar, notch and gesture bar
   (safe-area insets), and the content shrinks while the on-screen keyboard is
   open so the focused field stays reachable.
@@ -59,9 +65,17 @@ cargo apk run --lib --target aarch64-linux-android    # phone over USB
 cargo apk build --lib --release                       # APKs for both ABIs in target/release/apk/
 ```
 
-Release builds need a signing key: add
-`[package.metadata.android.signing.release]` with `path` and `keystore_password`
-to `Cargo.toml` (see the cargo-apk docs). Debug builds use `~/.android/debug.keystore`.
+Release builds need a signing key. Pass it through environment variables, so
+no key path or password ends up in the repository:
+
+```sh
+export CARGO_APK_RELEASE_KEYSTORE=/path/to/release.keystore
+export CARGO_APK_RELEASE_KEYSTORE_PASSWORD=...
+cargo apk build --lib --release --target aarch64-linux-android
+```
+
+Debug builds use `~/.android/debug.keystore`. Debug APKs are large (about
+440 MB) because they keep full debug symbols. Release builds are stripped.
 
 If the app closes on start, read
 `adb shell run-as com.openbilling.app cat files/crash.log`.

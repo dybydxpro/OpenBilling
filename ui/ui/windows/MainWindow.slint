@@ -41,6 +41,24 @@ global Nav {
         { key: "settings", label: "Backup & settings", short: "Settings", icon: Icons.settings },
     ];
 
+    // Phone tab bar: at most five tabs, so the rest live behind "More".
+    out property <[NavEntry]> primary: [
+        { key: "dashboard", label: "Dashboard", short: "Home", icon: Icons.dashboard },
+        { key: "orders", label: "Orders", short: "Orders", icon: Icons.orders },
+        { key: "invoices", label: "Invoices", short: "Invoices", icon: Icons.invoice },
+        { key: "customers", label: "Customers", short: "Clients", icon: Icons.customers },
+    ];
+    out property <[NavEntry]> more: [
+        { key: "templates", label: "Invoice templates", short: "Templates", icon: Icons.template },
+        { key: "reports", label: "Reports", short: "Reports", icon: Icons.reports },
+        { key: "settings", label: "Backup & settings", short: "Settings", icon: Icons.settings },
+    ];
+
+    public pure function in-more() -> bool {
+        return AppState.page == "templates" || AppState.page == "template-edit"
+            || AppState.page == "reports" || AppState.page == "settings";
+    }
+
     public pure function is-active(key: string) -> bool {
         if key == AppState.page { return true; }
         if key == "orders" && (AppState.page == "order-edit" || AppState.page == "order-view") { return true; }
@@ -212,43 +230,175 @@ component TopBar inherits Rectangle {
     }
 }
 
+component BottomTab inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> active;
+    callback clicked();
+
+    horizontal-stretch: 1;
+    accessible-role: tab;
+    accessible-label: root.label;
+    accessible-action-default => { root.clicked(); }
+
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    VerticalLayout {
+        alignment: center;
+        spacing: 3px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 52px;
+                height: 28px;
+                border-radius: 14px;
+                background: root.active ? Theme.primary-soft : transparent;
+                animate background { duration: 150ms; }
+                Icon {
+                    source: root.icon;
+                    colorize: root.active ? Theme.primary : Theme.text-subtle;
+                    size: 20px;
+                }
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: 11px;
+            font-weight: root.active ? 700 : 500;
+            color: root.active ? Theme.primary : Theme.text-muted;
+            horizontal-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+// Phone tab bar: four main destinations plus "More" (max five tabs).
 component BottomNav inherits Rectangle {
-    height: 62px;
+    height: 64px;
     background: Theme.surface;
     Rectangle { y: 0; height: 1px; background: Theme.border; }
     HorizontalLayout {
         padding-top: 4px;
-        for entry in Nav.entries: Rectangle {
-            horizontal-stretch: 1;
-            property <bool> active: Nav.is-active(entry.key);
-            TouchArea {
-                mouse-cursor: pointer;
-                clicked => { Api.navigate(entry.key); }
+        for entry in Nav.primary: BottomTab {
+            label: entry.short;
+            icon: entry.icon;
+            active: !AppState.more-open && Nav.is-active(entry.key);
+            clicked => {
+                AppState.more-open = false;
+                Api.navigate(entry.key);
             }
-            VerticalLayout {
-                alignment: center;
-                spacing: 3px;
-                HorizontalLayout {
-                    alignment: center;
-                    Rectangle {
-                        width: 40px;
-                        height: 26px;
-                        border-radius: 13px;
-                        background: active ? Theme.primary-soft : transparent;
-                        Icon {
-                            source: entry.icon;
-                            colorize: active ? Theme.primary : Theme.text-subtle;
-                            size: 19px;
-                        }
-                    }
+        }
+        BottomTab {
+            label: "More";
+            icon: Icons.more;
+            active: AppState.more-open || Nav.in-more();
+            clicked => { AppState.more-open = !AppState.more-open; }
+        }
+    }
+}
+
+component MoreRow inherits Rectangle {
+    in property <string> label;
+    in property <image> icon;
+    in property <bool> active;
+    in property <bool> danger;
+    callback clicked();
+
+    height: 56px;
+    border-radius: Theme.radius-sm;
+    background: ta.pressed ? Theme.primary-soft-2 : (root.active ? Theme.primary-soft : transparent);
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+    }
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: 10px;
+                background: root.danger ? Theme.danger-soft : Theme.primary-soft;
+                Icon {
+                    source: root.icon;
+                    colorize: root.danger ? Theme.danger : Theme.primary;
+                    size: 19px;
                 }
-                Text {
-                    text: entry.short;
-                    font-size: 10px;
-                    font-weight: active ? 700 : 500;
-                    color: active ? Theme.primary : Theme.text-muted;
-                    horizontal-alignment: center;
-                    overflow: elide;
+            }
+        }
+        Text {
+            text: root.label;
+            font-size: Theme.font-lg;
+            font-weight: 600;
+            color: root.danger ? Theme.danger : Theme.text;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+        if !root.danger: VerticalLayout {
+            alignment: center;
+            Icon {
+                source: Icons.chevron-right;
+                colorize: Theme.text-subtle;
+                size: 16px;
+            }
+        }
+    }
+}
+
+// Bottom sheet opened by the "More" tab.
+component MoreSheet inherits Rectangle {
+    background: #0f172a59;
+    TouchArea {
+        clicked => { AppState.more-open = false; }
+    }
+    sheet := Rectangle {
+        y: parent.height - self.height;
+        height: body.preferred-height;
+        background: Theme.surface;
+        border-radius: Theme.radius-lg;
+        drop-shadow-blur: 24px;
+        drop-shadow-color: #0f172a33;
+        // Swallow taps on the sheet itself.
+        TouchArea { }
+        body := VerticalLayout {
+            padding: 16px;
+            padding-bottom: 24px;
+            spacing: 4px;
+            HorizontalLayout {
+                alignment: center;
+                padding-bottom: 8px;
+                Rectangle {
+                    width: 40px;
+                    height: 4px;
+                    border-radius: 2px;
+                    background: Theme.border-strong;
+                }
+            }
+            for entry in Nav.more: MoreRow {
+                label: entry.label;
+                icon: entry.icon;
+                active: Nav.is-active(entry.key);
+                clicked => {
+                    AppState.more-open = false;
+                    Api.navigate(entry.key);
+                }
+            }
+            Rectangle {
+                height: 1px;
+                background: Theme.border;
+            }
+            MoreRow {
+                label: "Lock";
+                icon: Icons.lock;
+                danger: true;
+                clicked => {
+                    AppState.more-open = false;
+                    Api.lock();
                 }
             }
         }
@@ -426,6 +576,7 @@ component Shell inherits Rectangle {
                 if AppState.page == "template-edit": TemplateEditPage { }
                 if AppState.page == "reports": ReportsPage { }
                 if AppState.page == "settings": SettingsPage { }
+                if Theme.compact && AppState.more-open: MoreSheet { }
             }
             if Theme.compact: BottomNav { }
         }
@@ -479,7 +630,7 @@ export component MainWindow inherits Window {
     // dialog closes) so Back keeps working.
     public function reclaim-focus() { keys.focus(); }
     property <bool> any-dialog: CustomersState.dialog-visible || OrderView.generate-visible
-        || FilePicker.visible || AppState.confirm-visible;
+        || FilePicker.visible || AppState.confirm-visible || AppState.more-open;
     changed any-dialog => { if !self.any-dialog { keys.focus(); } }
     changed page-key => { keys.focus(); }
     property <string> page-key: AppState.screen == "app" ? AppState.page : "";
